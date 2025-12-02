@@ -16,6 +16,7 @@ export default function CheckoutPage() {
     const [cart, setCart] = useState<Equipment[]>([]);
     const [scanInput, setScanInput] = useState('');
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [project, setProject] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
@@ -29,8 +30,20 @@ export default function CheckoutPage() {
         }
     }, [user, router]);
 
+    // Clear messages after 3 seconds
+    useEffect(() => {
+        if (error || successMessage) {
+            const timer = setTimeout(() => {
+                setError('');
+                setSuccessMessage('');
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [error, successMessage]);
+
     const processBarcode = (barcode: string) => {
         setError('');
+        setSuccessMessage('');
 
         if (!barcode.trim()) return;
 
@@ -41,21 +54,22 @@ export default function CheckoutPage() {
         );
 
         if (!found) {
-            setError('Item not found');
+            setError(`Item not found: ${barcode}`);
             return;
         }
 
         if (found.status !== 'AVAILABLE') {
-            setError(`Item is currently ${found.status}`);
+            setError(`Item "${found.name}" is currently ${found.status}`);
             return;
         }
 
         if (cart.find(i => i.id === found.id)) {
-            setError('Item already in cart');
+            setError(`Item "${found.name}" is already in cart`);
             return;
         }
 
-        setCart([...cart, found]);
+        setCart(prev => [...prev, found]);
+        setSuccessMessage(`Added "${found.name}" to cart`);
         setScanInput('');
         setSuggestions([]);
         setShowSuggestions(false);
@@ -108,7 +122,7 @@ export default function CheckoutPage() {
             // If not JSON, treat as plain barcode
             processBarcode(decodedText);
         }
-        setShowScanner(false);
+        // Don't close scanner to allow continuous scanning
     };
 
     const removeFromCart = (id: string) => {
@@ -158,7 +172,7 @@ export default function CheckoutPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8 pb-20">
             <div className="flex flex-col space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">Checkout Equipment</h1>
                 <p className="text-muted-foreground">Scan items to add them to your checkout list.</p>
@@ -166,9 +180,9 @@ export default function CheckoutPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
-                    <Card className="p-6">
+                    <Card className="p-6" variant="glass">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold">Manual Entry</h3>
+                            <h3 className="font-semibold">Add Items</h3>
                             <Button
                                 variant={showScanner ? 'secondary' : 'outline'}
                                 size="sm"
@@ -177,6 +191,20 @@ export default function CheckoutPage() {
                                 {showScanner ? 'Hide Scanner' : 'Use Camera'}
                             </Button>
                         </div>
+
+                        {showScanner && (
+                            <div className="mb-6 animate-accordion-down">
+                                <QRScanner
+                                    onScan={handleQRScan}
+                                    onError={(err) => setError(err)}
+                                    continuous={true}
+                                />
+                                <p className="text-xs text-center text-muted-foreground mt-2">
+                                    Scanner is active. Point at a QR code to add to cart.
+                                </p>
+                            </div>
+                        )}
+
                         <form onSubmit={handleScan} className="relative">
                             <div className="flex gap-4">
                                 <Input
@@ -210,35 +238,63 @@ export default function CheckoutPage() {
                                 </div>
                             )}
                         </form>
-                        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+
+                        {/* Feedback Messages */}
+                        <div className="mt-4 min-h-[1.5rem]">
+                            {error && (
+                                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center animate-fade-in">
+                                    <svg className="w-5 h-5 text-destructive mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p className="text-sm text-destructive font-medium">{error}</p>
+                                </div>
+                            )}
+                            {successMessage && (
+                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center animate-fade-in">
+                                    <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{successMessage}</p>
+                                </div>
+                            )}
+                        </div>
                     </Card>
 
-                    {showScanner && (
-                        <QRScanner
-                            onScan={handleQRScan}
-                            onError={(err) => setError(err)}
-                        />
-                    )}
-
                     <div className="space-y-4">
-                        <h2 className="text-xl font-semibold">Cart ({cart.length})</h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-semibold">Cart ({cart.length})</h2>
+                            {cart.length > 0 && (
+                                <Button variant="ghost" size="sm" onClick={() => setCart([])} className="text-muted-foreground hover:text-destructive">
+                                    Clear All
+                                </Button>
+                            )}
+                        </div>
+
                         {cart.length === 0 ? (
-                            <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground">
-                                No items in cart. Scan items to begin.
+                            <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground bg-muted/30">
+                                <svg className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <p>No items in cart. Scan items to begin.</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {cart.map((item) => (
-                                    <Card key={item.id} className="flex items-center justify-between p-4">
-                                        <div>
-                                            <h3 className="font-medium">{item.name}</h3>
-                                            <p className="text-sm text-muted-foreground">{item.barcode}</p>
+                                {cart.map((item, index) => (
+                                    <Card key={`${item.id}-${index}`} className="flex items-center justify-between p-4 group hover:border-primary/50 transition-colors">
+                                        <div className="flex items-center space-x-4">
+                                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold">
+                                                {index + 1}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-medium">{item.name}</h3>
+                                                <p className="text-sm text-muted-foreground">{item.barcode} • {item.category}</p>
+                                            </div>
                                         </div>
                                         <Button
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => removeFromCart(item.id)}
-                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
                                             Remove
                                         </Button>
@@ -250,7 +306,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="space-y-6">
-                    <Card title="Checkout Details">
+                    <Card title="Checkout Details" className="sticky top-24">
                         <div className="space-y-4">
                             <Input
                                 label="Project / Shoot Name"

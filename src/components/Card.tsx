@@ -6,11 +6,29 @@ interface CardProps {
     title?: string;
     description?: string;
     footer?: React.ReactNode;
+    variant?: 'default' | 'glass' | 'outline';
+    hover?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', title, description, footer }) => {
+export const Card: React.FC<CardProps> = ({
+    children,
+    className = '',
+    title,
+    description,
+    footer,
+    variant = 'default',
+    hover = false
+}) => {
+    const variants = {
+        default: 'bg-card text-card-foreground border-border shadow-sm',
+        glass: 'glass text-foreground',
+        outline: 'bg-transparent border-border text-foreground'
+    };
+
+    const hoverStyles = hover ? 'transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/50' : '';
+
     return (
-        <div className={`rounded-lg border border-border bg-card text-card-foreground shadow-sm ${className}`}>
+        <div className={`rounded-xl border ${variants[variant]} ${hoverStyles} ${className}`}>
             {(title || description) && (
                 <div className="flex flex-col space-y-1.5 p-6">
                     {title && <h3 className="text-2xl font-semibold leading-none tracking-tight">{title}</h3>}

@@ -8,15 +8,17 @@ import { Card } from './Card';
 interface QRScannerProps {
     onScan: (decodedText: string) => void;
     onError?: (error: string) => void;
+    continuous?: boolean;
 }
 
-export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError }) => {
+export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuous = true }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState<string>('');
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const isInitialized = useRef(false);
     const [scannerId] = useState(() => `qr-reader-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
     const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
+    const lastScannedRef = useRef<{ text: string; time: number } | null>(null);
 
     const startScanning = async () => {
         // Check if we're in a secure context (HTTPS or localhost)
@@ -52,8 +54,20 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError }) => {
                 { facingMode: 'environment' },
                 config,
                 (decodedText) => {
+                    const now = Date.now();
+                    // Prevent duplicate scans of the same code within 2 seconds
+                    if (lastScannedRef.current &&
+                        lastScannedRef.current.text === decodedText &&
+                        now - lastScannedRef.current.time < 2000) {
+                        return;
+                    }
+
+                    lastScannedRef.current = { text: decodedText, time: now };
                     onScan(decodedText);
-                    stopScanning();
+
+                    if (!continuous) {
+                        stopScanning();
+                    }
                 },
                 () => {
                     // Ignore continuous scanning errors
@@ -120,7 +134,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError }) => {
                         width: '100%',
                         minHeight: '300px',
                         position: 'relative',
-                        border: '2px solid red' // Temporary debug border
+                        overflow: 'hidden'
                     }}
                 />
                 <style jsx global>{`
