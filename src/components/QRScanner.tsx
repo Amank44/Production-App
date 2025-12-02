@@ -115,8 +115,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError }) => {
 
                 <div
                     id={scannerId}
-                    className={`w-full ${isScanning ? 'block' : 'hidden'}`}
-                    style={{ maxWidth: '100%' }}
+                    className={`w-full overflow-hidden rounded-lg bg-black ${isScanning ? 'block' : 'hidden'}`}
+                    style={{
+                        width: '100%',
+                        minHeight: '300px'
+                    }}
                 />
 
                 {!isScanning && !error && (
