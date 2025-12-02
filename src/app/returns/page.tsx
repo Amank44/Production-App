@@ -1,0 +1,130 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { storage } from '@/lib/storage';
+import { Equipment, Condition } from '@/types';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { useAuth } from '@/lib/auth';
+
+export default function ReturnsPage() {
+    const router = useRouter();
+    const { user } = useAuth();
+    const [checkedOutItems, setCheckedOutItems] = useState<Equipment[]>([]);
+    const [selectedItems, setSelectedItems] = useState<string[]>([]);
+    const [conditions, setConditions] = useState<Record<string, Condition>>({});
+
+    const loadCheckedOutItems = React.useCallback(() => {
+        if (!user) return;
+        const items = storage.getEquipment();
+        const myItems = items.filter(i => i.status === 'CHECKED_OUT' && i.assignedTo === user.id);
+        setCheckedOutItems(myItems);
+    }, [user]);
+
+    useEffect(() => {
+        if (user && user.role !== 'STAFF') {
+            router.push('/');
+            return;
+        }
+
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        loadCheckedOutItems();
+    }, [user, router, loadCheckedOutItems]);
+
+    const toggleSelection = (id: string) => {
+        if (selectedItems.includes(id)) {
+            setSelectedItems(selectedItems.filter(i => i !== id));
+            const newConditions = { ...conditions };
+            delete newConditions[id];
+            setConditions(newConditions);
+        } else {
+            setSelectedItems([...selectedItems, id]);
+            setConditions({ ...conditions, [id]: 'OK' });
+        }
+    };
+
+    const handleConditionChange = (id: string, condition: Condition) => {
+        setConditions({ ...conditions, [id]: condition });
+    };
+
+    const handleSubmitReturn = () => {
+        if (selectedItems.length === 0) return;
+
+        selectedItems.forEach(id => {
+            storage.updateEquipment(id, {
+                status: 'PENDING_VERIFICATION',
+                condition: conditions[id]
+            });
+        });
+
+        // Refresh list
+        const items = storage.getEquipment();
+        const myItems = items.filter(i => i.status === 'CHECKED_OUT' && i.assignedTo === user?.id);
+        setCheckedOutItems(myItems);
+        setSelectedItems([]);
+        setConditions({});
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-bold tracking-tight">My Returns</h1>
+                <Button
+                    onClick={handleSubmitReturn}
+                    disabled={selectedItems.length === 0}
+                >
+                    Return Selected ({selectedItems.length})
+                </Button>
+            </div>
+
+            {checkedOutItems.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground">
+                    You have no items to return.
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {checkedOutItems.map((item) => (
+                        <Card
+                            key={item.id}
+                            className={`cursor-pointer transition-all ${selectedItems.includes(item.id) ? 'ring-2 ring-primary border-transparent' : ''}`}
+                        >
+                            <div className="flex items-start justify-between mb-4" onClick={() => toggleSelection(item.id)}>
+                                <div>
+                                    <h3 className="font-semibold text-lg">{item.name}</h3>
+                                    <p className="text-sm text-muted-foreground">{item.barcode}</p>
+                                </div>
+                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedItems.includes(item.id) ? 'border-primary bg-primary text-white' : 'border-muted'}`}>
+                                    {selectedItems.includes(item.id) && (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                </div>
+                            </div>
+
+                            {selectedItems.includes(item.id) && (
+                                <div className="mt-4 pt-4 border-t border-border space-y-2">
+                                    <label className="text-sm font-medium">Return Condition:</label>
+                                    <select
+                                        className="w-full h-10 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                        value={conditions[item.id] || 'OK'}
+                                        onChange={(e) => handleConditionChange(item.id, e.target.value as Condition)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <option value="OK">OK</option>
+                                        <option value="SCRATCHES">Scratches</option>
+                                        <option value="NOT_FUNCTIONING">Not Functioning</option>
+                                        <option value="NEEDS_BATTERY">Needs Battery</option>
+                                        <option value="LOOSE_MOUNT">Loose Mount</option>
+                                        <option value="DAMAGED">Damaged</option>
+                                    </select>
+                                </div>
+                            )}
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
