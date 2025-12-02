@@ -115,12 +115,26 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError }) => {
 
                 <div
                     id={scannerId}
-                    className={`w-full overflow-hidden rounded-lg bg-black ${isScanning ? 'block' : 'hidden'}`}
+                    className={`w-full rounded-lg bg-muted ${isScanning ? 'block' : 'hidden'}`}
                     style={{
                         width: '100%',
-                        minHeight: '300px'
+                        minHeight: '300px',
+                        position: 'relative',
+                        border: '2px solid red' // Temporary debug border
                     }}
                 />
+                <style jsx global>{`
+                    #${scannerId} video {
+                        width: 100% !important;
+                        height: 100% !important;
+                        object-fit: cover !important;
+                        display: block !important;
+                        border-radius: 0.5rem;
+                    }
+                    #${scannerId} canvas {
+                        display: none !important;
+                    }
+                `}</style>
 
                 {!isScanning && !error && (
                     <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
