@@ -2,7 +2,7 @@ import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'glass';
-    size?: 'sm' | 'md' | 'lg';
+    size?: 'sm' | 'md' | 'lg' | 'icon';
     isLoading?: boolean;
 }
 
@@ -15,22 +15,23 @@ export const Button: React.FC<ButtonProps> = ({
     disabled,
     ...props
 }) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
+    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
 
     const variants = {
-        primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 focus:ring-primary',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary',
-        outline: 'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground text-foreground focus:ring-ring',
-        ghost: 'hover:bg-accent hover:text-accent-foreground text-foreground focus:ring-ring',
-        danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-md shadow-destructive/20 focus:ring-destructive',
-        success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 focus:ring-emerald-600',
-        glass: 'glass hover:bg-white/20 text-foreground border-white/20 shadow-sm',
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all border border-transparent',
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent shadow-sm',
+        outline: 'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground text-foreground',
+        ghost: 'hover:bg-accent hover:text-accent-foreground text-foreground',
+        danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-md',
+        success: 'bg-green-600 text-white hover:bg-green-700 shadow-md',
+        glass: 'glass hover:bg-white/40 text-foreground border-white/20 shadow-sm backdrop-blur-md',
     };
 
     const sizes = {
         sm: 'h-9 px-3 text-sm',
         md: 'h-10 px-4 py-2',
         lg: 'h-12 px-8 text-lg',
+        icon: 'h-9 w-9 p-0',
     };
 
     return (

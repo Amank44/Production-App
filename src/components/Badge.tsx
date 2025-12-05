@@ -2,7 +2,7 @@ import React from 'react';
 
 interface BadgeProps {
     children: React.ReactNode;
-    variant?: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning';
+    variant?: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning' | 'orange';
     className?: string;
 }
 
@@ -11,9 +11,10 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', cla
         default: 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
         secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'text-foreground',
-        destructive: 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
-        success: 'border-transparent bg-success text-success-foreground hover:bg-success/80',
-        warning: 'border-transparent bg-warning text-warning-foreground hover:bg-warning/80',
+        destructive: 'border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20',
+        success: 'border-success bg-success/10 text-success hover:bg-success/20',
+        warning: 'border-warning bg-warning/10 text-warning hover:bg-warning/20',
+        orange: 'border-orange bg-orange/10 text-orange hover:bg-orange/20',
     };
 
     return (

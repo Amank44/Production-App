@@ -2,26 +2,60 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { Equipment, EquipmentStatus } from '@/types';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { downloadFile } from '@/lib/download';
 import { Input } from '@/components/Input';
 import { Badge } from '@/components/Badge';
 import { useAuth } from '@/lib/auth';
 
 export default function InventoryPage() {
+    const router = useRouter();
     const { user } = useAuth();
     const [items, setItems] = useState<Equipment[]>([]);
+    const [users, setUsers] = useState<Record<string, string>>({});
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'ALL'>('ALL');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [sortConfig, setSortConfig] = useState<{ key: keyof Equipment | 'assignedToName'; direction: 'asc' | 'desc' } | null>(null);
 
     useEffect(() => {
-        const loadData = () => {
-            setItems(storage.getEquipment());
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        const loadData = async () => {
+            const [equipmentData, usersData] = await Promise.all([
+                storage.getEquipment(),
+                storage.getUsers()
+            ]);
+            setItems(equipmentData);
+
+            const userMap: Record<string, string> = {};
+            usersData.forEach(u => {
+                userMap[u.id] = u.name;
+            });
+            setUsers(userMap);
         };
         loadData();
-    }, []);
+    }, [user, router]);
+
+    const getUserName = (id: string | undefined) => {
+        if (!id) return null;
+        return users[id] || id;
+    };
+
+    const handleSort = (key: keyof Equipment | 'assignedToName') => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const filteredItems = React.useMemo(() => {
         let result = items;
@@ -39,95 +73,264 @@ export default function InventoryPage() {
             result = result.filter(item => item.status === statusFilter);
         }
 
+        if (sortConfig) {
+            result = [...result].sort((a, b) => {
+                let aValue: string | number | null | undefined = a[sortConfig.key as keyof Equipment] as string | number | null | undefined;
+                let bValue: string | number | null | undefined = b[sortConfig.key as keyof Equipment] as string | number | null | undefined;
+
+                if (sortConfig.key === 'assignedToName') {
+                    aValue = getUserName(a.assignedTo) || '';
+                    bValue = getUserName(b.assignedTo) || '';
+                }
+
+                const valA = (aValue ?? '').toString().toLowerCase();
+                const valB = (bValue ?? '').toString().toLowerCase();
+
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
         return result;
-    }, [items, search, statusFilter]);
+    }, [items, search, statusFilter, sortConfig, users]);
 
     const getStatusVariant = (status: EquipmentStatus) => {
         switch (status) {
             case 'AVAILABLE': return 'success';
-            case 'CHECKED_OUT': return 'warning';
-            case 'PENDING_VERIFICATION': return 'secondary';
+            case 'CHECKED_OUT': return 'secondary';
+            case 'PENDING_VERIFICATION': return 'warning';
             case 'DAMAGED': return 'destructive';
             case 'LOST': return 'destructive';
-            case 'MAINTENANCE': return 'secondary';
+            case 'MAINTENANCE': return 'destructive';
             default: return 'default';
         }
     };
 
+    const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) => (
+        <svg className={`w-4 h-4 ml-1 transition-colors ${active ? 'text-primary' : 'text-muted-foreground/30'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {active && direction === 'desc' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            )}
+        </svg>
+    );
+
+    const handlePrintQR = async (e: React.MouseEvent, item: Equipment) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            const qrModule = await import('qrcode');
+            const QRCode = qrModule.default || qrModule;
+            const pdfModule = await import('jspdf');
+            const jsPDF = pdfModule.jsPDF || pdfModule.default;
+
+            if (!jsPDF) throw new Error('jsPDF not loaded');
+
+            const qrUrl = await QRCode.toDataURL(item.barcode, { width: 400, margin: 2 });
+
+            const pdf = new jsPDF({ orientation: 'landscape', format: [100, 60], unit: 'mm' });
+
+            pdf.setFontSize(14);
+            pdf.text(item.name.substring(0, 30), 5, 8);
+
+            pdf.addImage(qrUrl, 'PNG', 25, 12, 50, 40);
+
+            pdf.setFontSize(10);
+            pdf.text(item.barcode, 50, 56, { align: 'center' });
+
+            downloadFile(pdf.output('blob'), `${item.barcode}_QR.pdf`, 'application/pdf');
+        } catch (err) {
+            console.error('QR Gen Failed', err);
+            alert('Failed to generate PDF');
+        }
+    };
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-                {user?.role === 'MANAGER' && (
-                    <Link href="/inventory/add">
-                        <Button>Add Equipment</Button>
-                    </Link>
-                )}
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Inventory</h1>
+                <div className="flex items-center gap-2">
+                    <div className="flex bg-secondary p-1 rounded-lg border border-border">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                            </svg>
+                        </button>
+                    </div>
+                    {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
+                        <div className="flex gap-2">
+                            <Link href="/inventory/bulk-add">
+                                <Button variant="secondary" className="whitespace-nowrap">
+                                    <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span className="hidden sm:inline">Bulk Import</span>
+                                    <span className="sm:hidden">Bulk</span>
+                                </Button>
+                            </Link>
+                            <Link href="/inventory/add">
+                                <Button className="whitespace-nowrap">Add Equipment</Button>
+                            </Link>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
+                <div className="w-full sm:flex-1">
                     <Input
                         placeholder="Search by name, barcode, or category..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
+                        className="bg-secondary/50 border-border w-full"
                     />
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0">
-                    {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'PENDING_VERIFICATION', 'MAINTENANCE'] as const).map((status) => (
-                        <Button
-                            key={status}
-                            variant={statusFilter === status ? 'primary' : 'outline'}
-                            size="sm"
-                            onClick={() => setStatusFilter(status)}
-                            className="whitespace-nowrap"
-                        >
-                            {status === 'ALL' ? 'All' : status.replace('_', ' ')}
-                        </Button>
-                    ))}
+                <div className="w-full sm:w-auto overflow-hidden">
+                    <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+                        {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'PENDING_VERIFICATION', 'MAINTENANCE'] as const).map((status) => (
+                            <Button
+                                key={status}
+                                variant={statusFilter === status ? 'primary' : 'outline'}
+                                size="sm"
+                                onClick={() => setStatusFilter(status)}
+                                className="whitespace-nowrap flex-shrink-0"
+                            >
+                                {status === 'ALL' ? 'All' : status.replace('_', ' ')}
+                            </Button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredItems.map((item) => (
-                    <Link key={item.id} href={`/inventory/${item.id}`}>
-                        <Card className="h-full hover:border-primary transition-colors cursor-pointer group">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{item.name}</h3>
-                                    <p className="text-sm text-muted-foreground">{item.category}</p>
-                                </div>
-                                <Badge variant={getStatusVariant(item.status)}>
-                                    {item.status.replace('_', ' ')}
-                                </Badge>
-                            </div>
-
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">ID:</span>
-                                    <span className="font-mono">{item.barcode}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Location:</span>
-                                    <span>{item.location}</span>
-                                </div>
-                                {item.assignedTo && (
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Assigned:</span>
-                                        <span>{item.assignedTo}</span>
+            {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                    {filteredItems.map((item) => (
+                        <Link key={item.id} href={`/inventory/${item.id}`}>
+                            <Card className="h-full hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-lg hover:-translate-y-1 bg-secondary border-border">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-start gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-lg group-hover:text-primary transition-colors truncate">{item.name}</h3>
+                                            <p className="text-sm text-muted-foreground mt-1">{item.category}</p>
+                                        </div>
+                                        <Badge variant={getStatusVariant(item.status)} className="uppercase text-[10px] tracking-wider font-semibold shrink-0">
+                                            {item.status.replace('_', ' ')}
+                                        </Badge>
                                     </div>
-                                )}
-                            </div>
-                        </Card>
-                    </Link>
-                ))}
 
-                {filteredItems.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-muted-foreground">
-                        No items found matching your criteria.
+                                    <div className="space-y-2.5 pt-3 border-t border-border/50">
+                                        <div className="flex items-start gap-2">
+                                            <p className="text-xs text-muted-foreground font-medium min-w-[60px]">ID</p>
+                                            <p className="font-mono text-foreground text-xs flex-1 min-w-0 truncate">{item.barcode}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <p className="text-xs text-muted-foreground font-medium min-w-[60px]">Action</p>
+                                            <button
+                                                onClick={(e) => handlePrintQR(e, item)}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                                </svg>
+                                                Print QR
+                                            </button>
+                                        </div>
+                                        {item.assignedTo && (
+                                            <div className="flex items-start gap-2 pt-1">
+                                                <p className="text-xs text-muted-foreground font-medium min-w-[60px]">Assigned</p>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary font-bold shrink-0">
+                                                        {getUserName(item.assignedTo)?.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-foreground text-xs truncate">{getUserName(item.assignedTo)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        </Link>
+                    ))}
+                </div>
+            ) : (
+                <Card className="overflow-hidden border-border/50 bg-secondary/30">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-muted-foreground uppercase bg-secondary/50 border-b border-border">
+                                <tr>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('name')}>
+                                        <div className="flex items-center">Name <SortIcon active={sortConfig?.key === 'name'} direction={sortConfig?.direction || 'asc'} /></div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('category')}>
+                                        <div className="flex items-center">Category <SortIcon active={sortConfig?.key === 'category'} direction={sortConfig?.direction || 'asc'} /></div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('barcode')}>
+                                        <div className="flex items-center">Barcode <SortIcon active={sortConfig?.key === 'barcode'} direction={sortConfig?.direction || 'asc'} /></div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('status')}>
+                                        <div className="flex items-center">Status <SortIcon active={sortConfig?.key === 'status'} direction={sortConfig?.direction || 'asc'} /></div>
+                                    </th>
+                                    <th className="px-6 py-3">
+                                        <div className="flex items-center">Action</div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('assignedToName')}>
+                                        <div className="flex items-center">Assigned To <SortIcon active={sortConfig?.key === 'assignedToName'} direction={sortConfig?.direction || 'asc'} /></div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredItems.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => router.push(`/inventory/${item.id}`)}
+                                        className="bg-background/50 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                                    >
+                                        <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
+                                        <td className="px-6 py-4 text-muted-foreground">{item.category}</td>
+                                        <td className="px-6 py-4 font-mono text-muted-foreground">{item.barcode}</td>
+                                        <td className="px-6 py-4">
+                                            <Badge variant={getStatusVariant(item.status)}>
+                                                {item.status.replace('_', ' ')}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={(e) => handlePrintQR(e, item)}
+                                                className="text-primary hover:text-primary/80 transition-colors"
+                                                title="Print QR"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4 text-muted-foreground">{getUserName(item.assignedTo) || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                )}
-            </div>
+                </Card>
+            )}
+
+            {filteredItems.length === 0 && (
+                <div className="col-span-full text-center py-12 text-muted-foreground bg-secondary/20 rounded-xl border border-dashed border-border">
+                    <p>No items found matching your criteria.</p>
+                </div>
+            )}
         </div>
     );
 }

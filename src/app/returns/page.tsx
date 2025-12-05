@@ -15,20 +15,19 @@ export default function ReturnsPage() {
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
     const [conditions, setConditions] = useState<Record<string, Condition>>({});
 
-    const loadCheckedOutItems = React.useCallback(() => {
+    const loadCheckedOutItems = React.useCallback(async () => {
         if (!user) return;
-        const items = storage.getEquipment();
+        const items = await storage.getEquipment();
         const myItems = items.filter(i => i.status === 'CHECKED_OUT' && i.assignedTo === user.id);
         setCheckedOutItems(myItems);
     }, [user]);
 
     useEffect(() => {
-        if (user && user.role !== 'STAFF') {
+        if (user && !['CREW', 'MANAGER', 'ADMIN'].includes(user.role)) {
             router.push('/');
             return;
         }
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadCheckedOutItems();
     }, [user, router, loadCheckedOutItems]);
 
@@ -48,18 +47,19 @@ export default function ReturnsPage() {
         setConditions({ ...conditions, [id]: condition });
     };
 
-    const handleSubmitReturn = () => {
+    const handleSubmitReturn = async () => {
         if (selectedItems.length === 0) return;
 
-        selectedItems.forEach(id => {
+        // Process updates sequentially or in parallel
+        await Promise.all(selectedItems.map(id =>
             storage.updateEquipment(id, {
                 status: 'PENDING_VERIFICATION',
                 condition: conditions[id]
-            });
-        });
+            })
+        ));
 
         // Refresh list
-        const items = storage.getEquipment();
+        const items = await storage.getEquipment();
         const myItems = items.filter(i => i.status === 'CHECKED_OUT' && i.assignedTo === user?.id);
         setCheckedOutItems(myItems);
         setSelectedItems([]);
@@ -68,7 +68,7 @@ export default function ReturnsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-4">
                 <h1 className="text-3xl font-bold tracking-tight">My Returns</h1>
                 <Button
                     onClick={handleSubmitReturn}

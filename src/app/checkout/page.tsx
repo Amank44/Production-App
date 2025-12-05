@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
-import { Equipment, Transaction } from '@/types';
+import { Equipment, Transaction, User } from '@/types';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Card } from '@/components/Card';
+import { Select } from '@/components/Select';
 import { QRScanner } from '@/components/QRScanner';
 import { useAuth } from '@/lib/auth';
 
@@ -23,12 +24,37 @@ export default function CheckoutPage() {
     const [suggestions, setSuggestions] = useState<Equipment[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // Redirect if not staff
+    const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
+
+    // Redirect if not authorized
     useEffect(() => {
-        if (user && user.role !== 'STAFF') {
+        if (user && !['CREW', 'MANAGER', 'ADMIN'].includes(user.role)) {
             router.push('/');
         }
     }, [user, router]);
+
+    // Fetch equipment and users (if admin/manager) on mount
+    useEffect(() => {
+        const fetchData = async () => {
+            const items = await storage.getEquipment();
+            setEquipmentList(items);
+
+            if (user && ['MANAGER', 'ADMIN'].includes(user.role)) {
+                const userList = await storage.getUsers();
+                setUsers(userList);
+            }
+        };
+        fetchData();
+    }, [user]);
+
+    // Set default selected user
+    useEffect(() => {
+        if (user) {
+            setSelectedUserId(user.id);
+        }
+    }, [user]);
 
     // Clear messages after 3 seconds
     useEffect(() => {
@@ -41,38 +67,86 @@ export default function CheckoutPage() {
         }
     }, [error, successMessage]);
 
+    const lastProcessedRef = React.useRef<{ code: string; time: number } | null>(null);
+
+    const playSuccessSound = () => {
+        const audio = new Audio('/sounds/beep.mp3'); // We'll need to create this or use a data URI
+        // Using a simple oscillator beep for now to avoid external dependencies
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+
+        // Vibrate if supported
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+        }
+    };
+
     const processBarcode = (barcode: string) => {
+        const normalizedBarcode = barcode.trim();
+        // Prevent processing the same barcode multiple times within a short window
+        const now = Date.now();
+        if (lastProcessedRef.current &&
+            lastProcessedRef.current.code.toLowerCase() === normalizedBarcode.toLowerCase() &&
+            now - lastProcessedRef.current.time < 2000) {
+            return;
+        }
+
         setError('');
         setSuccessMessage('');
 
-        if (!barcode.trim()) return;
+        if (!normalizedBarcode) return;
 
-        const items = storage.getEquipment();
-        const found = items.find(i =>
-            i.barcode.toLowerCase() === barcode.toLowerCase() ||
-            i.id === barcode
+        // Use local state instead of synchronous storage call
+        const found = equipmentList.find(i =>
+            i.barcode.toLowerCase() === normalizedBarcode.toLowerCase() ||
+            i.id === normalizedBarcode
         );
 
         if (!found) {
-            setError(`Item not found: ${barcode}`);
+            setError(`Item not found: ${normalizedBarcode}`);
+            // Update last processed even on error to prevent spamming error messages
+            lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
 
         if (found.status !== 'AVAILABLE') {
             setError(`Item "${found.name}" is currently ${found.status}`);
+            lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
 
+        // Check against current state (might be stale in rapid succession)
         if (cart.find(i => i.id === found.id)) {
             setError(`Item "${found.name}" is already in cart`);
+            lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
 
-        setCart(prev => [...prev, found]);
-        setSuccessMessage(`Added "${found.name}" to cart`);
+        // Use functional update to ensure we check the latest state directly
+        setCart(prev => {
+            if (prev.find(i => i.id === found.id)) {
+                return prev;
+            }
+            // Only play sound and show message if actually adding
+            setTimeout(() => {
+                setSuccessMessage(`Added "${found.name}" to cart`);
+                playSuccessSound();
+            }, 0);
+            return [...prev, found];
+        });
+
         setScanInput('');
         setSuggestions([]);
         setShowSuggestions(false);
+        lastProcessedRef.current = { code: normalizedBarcode, time: now };
     };
 
     const handleInputChange = (value: string) => {
@@ -80,8 +154,7 @@ export default function CheckoutPage() {
         setError('');
 
         if (value.trim().length > 0) {
-            const items = storage.getEquipment();
-            const filtered = items.filter(item =>
+            const filtered = equipmentList.filter(item =>
                 item.status === 'AVAILABLE' &&
                 !cart.find(c => c.id === item.id) &&
                 (
@@ -137,7 +210,7 @@ export default function CheckoutPage() {
         try {
             const transaction: Transaction = {
                 id: crypto.randomUUID(),
-                userId: user.id,
+                userId: selectedUserId,
                 items: cart.map(i => i.id),
                 timestampOut: new Date().toISOString(),
                 project: project || 'Unspecified Project',
@@ -155,7 +228,7 @@ export default function CheckoutPage() {
             cart.forEach(item => {
                 storage.updateEquipment(item.id, {
                     status: 'CHECKED_OUT',
-                    assignedTo: user.id,
+                    assignedTo: selectedUserId,
                     lastActivity: new Date().toISOString()
                 });
             });
@@ -181,12 +254,13 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <Card className="p-6" variant="glass">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold">Add Items</h3>
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                            <h3 className="font-semibold w-full sm:w-auto text-center sm:text-left">Add Items</h3>
                             <Button
                                 variant={showScanner ? 'secondary' : 'outline'}
                                 size="sm"
                                 onClick={() => setShowScanner(!showScanner)}
+                                className="w-full sm:w-auto"
                             >
                                 {showScanner ? 'Hide Scanner' : 'Use Camera'}
                             </Button>
@@ -220,19 +294,19 @@ export default function CheckoutPage() {
                             </div>
 
                             {showSuggestions && suggestions.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-auto">
+                                <div className="absolute z-50 w-full mt-2 bg-secondary border border-border rounded-lg shadow-2xl max-h-60 overflow-auto animate-in fade-in zoom-in-95 duration-200">
                                     {suggestions.map((item) => (
                                         <button
                                             key={item.id}
                                             type="button"
                                             onClick={() => handleSuggestionClick(item)}
-                                            className="w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors border-b border-border last:border-0 flex items-center justify-between"
+                                            className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-0 flex items-center justify-between group"
                                         >
                                             <div className="flex-1">
-                                                <p className="font-medium text-sm">{item.name}</p>
+                                                <p className="font-medium text-sm group-hover:text-primary transition-colors">{item.name}</p>
                                                 <p className="text-xs text-muted-foreground">{item.barcode} • {item.category}</p>
                                             </div>
-                                            <span className="text-xs text-muted-foreground ml-2">{item.location}</span>
+                                            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded group-hover:bg-background transition-colors">{item.location}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -280,24 +354,27 @@ export default function CheckoutPage() {
                         ) : (
                             <div className="space-y-3">
                                 {cart.map((item, index) => (
-                                    <Card key={`${item.id}-${index}`} className="flex items-center justify-between p-4 group hover:border-primary/50 transition-colors">
-                                        <div className="flex items-center space-x-4">
-                                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold">
+                                    <Card key={`${item.id}-${index}`} className="group hover:border-primary/50 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold shrink-0">
                                                 {index + 1}
                                             </div>
-                                            <div>
-                                                <h3 className="font-medium">{item.name}</h3>
-                                                <p className="text-sm text-muted-foreground">{item.barcode} • {item.category}</p>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-medium truncate">{item.name}</h3>
+                                                <p className="text-sm text-muted-foreground truncate">{item.barcode} • {item.category}</p>
                                             </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeFromCart(item.id)}
+                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                                aria-label="Remove"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                </svg>
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => removeFromCart(item.id)}
-                                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            Remove
-                                        </Button>
                                     </Card>
                                 ))}
                             </div>
@@ -308,6 +385,21 @@ export default function CheckoutPage() {
                 <div className="space-y-6">
                     <Card title="Checkout Details" className="sticky top-24">
                         <div className="space-y-4">
+                            {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Checkout For
+                                    </label>
+                                    <Select
+                                        value={selectedUserId}
+                                        onChange={setSelectedUserId}
+                                        options={users.map(u => ({
+                                            value: u.id,
+                                            label: `${u.name} (${u.role})`
+                                        }))}
+                                    />
+                                </div>
+                            )}
                             <Input
                                 label="Project / Shoot Name"
                                 placeholder="e.g. Documentary Shoot A"

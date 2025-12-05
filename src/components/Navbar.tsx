@@ -5,12 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Button } from './Button';
-import { storage } from '@/lib/storage';
 
 export const Navbar = () => {
     const pathname = usePathname();
-    const { user, login, logout } = useAuth();
-    const users = storage.getUsers();
+    const { user, logout } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const isActive = (path: string) => pathname === path;
@@ -19,12 +17,14 @@ export const Navbar = () => {
 
     const NavLinks = () => (
         <>
-            <Link href="/inventory" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button variant={isActive('/inventory') ? 'secondary' : 'ghost'} size="sm" className="w-full justify-start md:w-auto">
-                    Inventory
-                </Button>
-            </Link>
-            {user?.role === 'STAFF' && (
+            {user && (
+                <Link href="/inventory" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant={isActive('/inventory') ? 'secondary' : 'ghost'} size="sm" className="w-full justify-start md:w-auto">
+                        Inventory
+                    </Button>
+                </Link>
+            )}
+            {(user?.role === 'CREW' || user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
                 <>
                     <Link href="/checkout" onClick={() => setIsMobileMenuOpen(false)}>
                         <Button variant={isActive('/checkout') ? 'secondary' : 'ghost'} size="sm" className="w-full justify-start md:w-auto">
@@ -38,7 +38,7 @@ export const Navbar = () => {
                     </Link>
                 </>
             )}
-            {user?.role === 'MANAGER' && (
+            {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
                 <>
                     <Link href="/verification" onClick={() => setIsMobileMenuOpen(false)}>
                         <Button variant={isActive('/verification') ? 'secondary' : 'ghost'} size="sm" className="w-full justify-start md:w-auto">
@@ -66,7 +66,7 @@ export const Navbar = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">EquipCheck</span>
+                            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Vpub App</span>
                         </Link>
 
                         <div className="hidden md:flex ml-10 space-x-2">
@@ -87,14 +87,11 @@ export const Navbar = () => {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-muted-foreground mr-2">Login as:</span>
-                                    {users.map(u => (
-                                        <Button key={u.id} variant="ghost" size="sm" onClick={() => login(u.id)}>
-                                            {u.role}
-                                        </Button>
-                                    ))}
-                                </div>
+                                <Link href="/login">
+                                    <Button variant="primary" size="sm">
+                                        Login
+                                    </Button>
+                                </Link>
                             )}
                         </div>
 
@@ -131,15 +128,10 @@ export const Navbar = () => {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="space-y-2">
-                                    <p className="text-sm text-muted-foreground px-2">Login as:</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {users.map(u => (
-                                            <Button key={u.id} variant="ghost" size="sm" onClick={() => { login(u.id); setIsMobileMenuOpen(false); }}>
-                                                {u.role}
-                                            </Button>
-                                        ))}
-                                    </div>
+                                <div className="px-2">
+                                    <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                                        <Button className="w-full">Login</Button>
+                                    </Link>
                                 </div>
                             )}
                         </div>

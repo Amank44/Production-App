@@ -50,7 +50,7 @@ export default function AddItemPage() {
                 },
             };
 
-            storage.addEquipment(newItem);
+            await storage.addEquipment(newItem);
 
             // Generate QR Code (just to verify it works, in real app we might save it or print it)
             const qrDataUrl = await QRCode.toDataURL(JSON.stringify({ id, barcode }));

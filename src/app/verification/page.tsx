@@ -14,23 +14,22 @@ export default function VerificationPage() {
     const { user } = useAuth();
     const [pendingItems, setPendingItems] = useState<Equipment[]>([]);
 
-    const loadItems = React.useCallback(() => {
-        const items = storage.getEquipment();
+    const loadItems = React.useCallback(async () => {
+        const items = await storage.getEquipment();
         setPendingItems(items.filter(i => i.status === 'PENDING_VERIFICATION'));
     }, []);
 
     useEffect(() => {
-        if (user && user.role !== 'MANAGER') {
+        if (user && !['MANAGER', 'ADMIN'].includes(user.role)) {
             router.push('/');
             return;
         }
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadItems();
     }, [user, router, loadItems]);
 
-    const handleVerify = (id: string, status: 'AVAILABLE' | 'DAMAGED' | 'MAINTENANCE') => {
-        storage.updateEquipment(id, {
+    const handleVerify = async (id: string, status: 'AVAILABLE' | 'DAMAGED' | 'MAINTENANCE') => {
+        await storage.updateEquipment(id, {
             status,
             assignedTo: undefined, // Clear assignment
             lastActivity: new Date().toISOString()

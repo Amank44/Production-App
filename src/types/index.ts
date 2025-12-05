@@ -1,4 +1,4 @@
-export type Role = 'STAFF' | 'MANAGER' | 'VIEWER';
+export type Role = 'ADMIN' | 'MANAGER' | 'CREW';
 
 export type EquipmentStatus =
     | 'AVAILABLE'
