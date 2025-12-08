@@ -34,7 +34,7 @@ export const Sidebar = () => {
             {/* Mobile Menu Button */}
             <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-secondary rounded-lg border border-border text-foreground shadow-lg"
+                className="md:hidden fixed top-3 left-3 z-50 p-2 bg-secondary rounded-lg border border-border text-foreground shadow-lg active:scale-95 transition-transform"
             >
                 {isMobileMenuOpen ? (
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

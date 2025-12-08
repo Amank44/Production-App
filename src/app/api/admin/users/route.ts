@@ -1,18 +1,26 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Create a Supabase client with the service role key for admin actions
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to prevent build-time errors when env vars are missing
+let adminClient: any = null;
+
+const getSupabaseAdmin = () => {
+    if (adminClient) return adminClient;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('Missing Supabase Admin environment variables');
+    }
+
+    adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    return adminClient;
+};
 
 export async function GET(request: Request) {
     try {
-        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-            console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
-            throw new Error('Server configuration error');
-        }
+        const supabaseAdmin = getSupabaseAdmin();
 
         const { data: users, error } = await supabaseAdmin
             .from('users')
@@ -33,6 +41,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { email, password, name, role } = body;
 
@@ -74,6 +83,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { id, password, active, role } = body;
 

@@ -267,31 +267,31 @@ export default function BulkAddPage() {
     if (loading) return <div className="flex justify-center p-10"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>;
 
     return (
-        <div className="p-6 space-y-6 max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <div className="flex items-center gap-2">
-                        <Button variant="secondary" onClick={() => router.push('/inventory')} size="sm">
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
-                            Back
-                        </Button>
-                        <h1 className="text-2xl font-bold tracking-tight">Bulk Import</h1>
-                    </div>
+        <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+            <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-8">
+                <div className="flex items-center gap-2 sm:gap-4">
+                    <Button variant="secondary" onClick={() => router.push('/inventory')} size="sm" className="shrink-0">
+                        <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span className="hidden sm:inline">Back</span>
+                    </Button>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Bulk Import</h1>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleDownloadTemplate} size="sm">
-                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <Button variant="outline" onClick={handleDownloadTemplate} size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+                        <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Template
+                        <span className="hidden sm:inline">Template</span>
+                        <span className="sm:hidden">CSV</span>
                     </Button>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} size="sm">
-                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+                        <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        Upload CSV
+                        <span className="hidden sm:inline">Upload CSV</span>
+                        <span className="sm:hidden">Upload</span>
                     </Button>
                     <input
                         type="file"
@@ -303,11 +303,11 @@ export default function BulkAddPage() {
                 </div>
             </div>
 
-            <div className="bg-secondary/20 border border-border rounded-xl p-4 sm:p-6 space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-secondary/50 rounded-lg border border-border/50">
-                    <label className="text-sm font-medium whitespace-nowrap">Default Location:</label>
+            <div className="bg-secondary/20 border border-border rounded-xl p-3 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-secondary/50 rounded-lg border border-border/50">
+                    <label className="text-xs sm:text-sm font-medium whitespace-nowrap">Default Location:</label>
                     <input
-                        className="bg-background border border-border rounded px-3 py-1.5 text-sm w-full max-w-xs focus:ring-1 focus:ring-primary outline-none"
+                        className="bg-background border border-border rounded px-3 py-1.5 text-xs sm:text-sm w-full sm:max-w-xs focus:ring-1 focus:ring-primary outline-none"
                         value={defaultLocation}
                         onChange={(e) => {
                             setDefaultLocation(e.target.value);
@@ -316,7 +316,8 @@ export default function BulkAddPage() {
                     />
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-border/50 text-left">
@@ -339,6 +340,7 @@ export default function BulkAddPage() {
                                             className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none"
                                             value={row.name}
                                             onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                                            placeholder="Item Name"
                                         />
                                     </td>
                                     <td className="py-2 px-2">
@@ -354,6 +356,7 @@ export default function BulkAddPage() {
                                             className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none font-mono uppercase text-xs"
                                             value={row.modelCode}
                                             onChange={(e) => updateRow(row.id, { modelCode: e.target.value.toUpperCase() })}
+                                            placeholder="CODE"
                                         />
                                     </td>
                                     <td className="py-2 px-2">
@@ -392,13 +395,93 @@ export default function BulkAddPage() {
                     </table>
                 </div>
 
-                <div className="pt-4 flex flex-col sm:flex-row items-center justify-between border-t border-border/50 gap-4">
-                    <Button variant="secondary" onClick={addRow} className="w-full sm:w-auto">Add Another Row</Button>
-                    <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
-                        <div className="text-sm text-muted-foreground whitespace-nowrap">
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                    {rows.map((row, index) => (
+                        <div key={row.id} className="bg-background border border-border rounded-lg p-4 space-y-4 shadow-sm relative">
+                            <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                                <span className="text-sm font-medium text-muted-foreground">Item #{index + 1}</span>
+                                <button onClick={() => removeRow(row.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Item Name</label>
+                                    <input
+                                        className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                        value={row.name}
+                                        onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                                        placeholder="E.g. Sony A7S III"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
+                                        <input
+                                            list="categories"
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                            value={row.category}
+                                            onChange={(e) => updateRow(row.id, { category: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Model Code</label>
+                                        <input
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none font-mono uppercase text-xs"
+                                            value={row.modelCode}
+                                            onChange={(e) => updateRow(row.id, { modelCode: e.target.value.toUpperCase() })}
+                                            placeholder="CODE"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Quantity</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                            value={row.quantity}
+                                            onChange={(e) => updateRow(row.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+                                        <input
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                            value={row.location}
+                                            onChange={(e) => updateRow(row.id, { location: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="bg-secondary/20 rounded p-2">
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">ID Preview</label>
+                                    <div className="flex flex-wrap gap-1">
+                                        {getPreviewIDs(row, index).map(id => (
+                                            <span key={id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary font-mono border border-primary/20 whitespace-nowrap">
+                                                {id}
+                                            </span>
+                                        ))}
+                                        {(!row.modelCode) && <span className="text-xs text-muted-foreground italic">Enter model code...</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-t border-border/50 gap-3 sm:gap-4">
+                    <Button variant="secondary" onClick={addRow} size="sm" className="w-full sm:w-auto">Add Row</Button>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                        <div className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                             Total: <span className="font-medium text-foreground">{rows.reduce((acc, r) => acc + r.quantity, 0)}</span>
                         </div>
-                        <Button onClick={handleSave} disabled={saving || rows.some(r => !r.name || !r.modelCode)} className="w-full sm:w-auto">
+                        <Button onClick={handleSave} disabled={saving || rows.some(r => !r.name || !r.modelCode)} size="sm" className="flex-1 sm:flex-none">
                             {saving ? 'Saving...' : 'Import All'}
                         </Button>
                     </div>

@@ -65,15 +65,15 @@ export default function AddItemPage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Add New Equipment</h1>
-                <Button variant="ghost" onClick={() => router.back()}>Cancel</Button>
+        <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between gap-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Add New Equipment</h1>
+                <Button variant="ghost" size="sm" onClick={() => router.back()}>Cancel</Button>
             </div>
 
             <Card>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <Input
                             label="Equipment Name"
                             required
@@ -115,8 +115,9 @@ export default function AddItemPage() {
                         />
                     </div>
 
-                    <div className="flex justify-end pt-4">
-                        <Button type="submit" isLoading={isLoading}>
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 sm:pt-4">
+                        <Button variant="ghost" type="button" onClick={() => router.back()} className="sm:hidden">Cancel</Button>
+                        <Button type="submit" isLoading={isLoading} className="w-full sm:w-auto">
                             Add Equipment
                         </Button>
                     </div>

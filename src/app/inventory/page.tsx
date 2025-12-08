@@ -148,67 +148,71 @@ export default function InventoryPage() {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Inventory</h1>
-                <div className="flex items-center gap-2">
-                    <div className="flex bg-secondary p-1 rounded-lg border border-border">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                            </svg>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                            </svg>
-                        </button>
-                    </div>
-                    {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
-                        <div className="flex gap-2">
-                            <Link href="/inventory/bulk-add">
-                                <Button variant="secondary" className="whitespace-nowrap">
-                                    <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <span className="hidden sm:inline">Bulk Import</span>
-                                    <span className="sm:hidden">Bulk</span>
-                                </Button>
-                            </Link>
-                            <Link href="/inventory/add">
-                                <Button className="whitespace-nowrap">Add Equipment</Button>
-                            </Link>
+        <div className="space-y-4 sm:space-y-6 animate-fade-in">
+            <div className="flex flex-col gap-3 sm:gap-4">
+                <div className="flex items-center justify-between gap-2">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Inventory</h1>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        <div className="flex bg-secondary p-0.5 sm:p-1 rounded-lg border border-border">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-1.5 sm:p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-1.5 sm:p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                </svg>
+                            </button>
                         </div>
-                    )}
+                        {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
+                            <div className="flex gap-1 sm:gap-2">
+                                <Link href="/inventory/bulk-add">
+                                    <Button variant="secondary" size="sm" className="whitespace-nowrap px-2 sm:px-3">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span className="hidden sm:inline ml-2">Bulk Import</span>
+                                    </Button>
+                                </Link>
+                                <Link href="/inventory/add">
+                                    <Button className="whitespace-nowrap px-2 sm:px-4" size="sm">
+                                        <span className="hidden sm:inline">Add Equipment</span>
+                                        <span className="sm:hidden">+ Add</span>
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-                <div className="w-full sm:flex-1">
+            <div className="flex flex-col gap-3">
+                <div className="w-full">
                     <Input
                         placeholder="Search by name, barcode, or category..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="bg-secondary/50 border-border w-full"
+                        className="bg-secondary/50 border-border w-full text-sm"
                     />
                 </div>
-                <div className="w-full sm:w-auto overflow-hidden">
-                    <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+                <div className="w-full overflow-hidden -mx-3 px-3">
+                    <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'PENDING_VERIFICATION', 'MAINTENANCE'] as const).map((status) => (
                             <Button
                                 key={status}
                                 variant={statusFilter === status ? 'primary' : 'outline'}
                                 size="sm"
                                 onClick={() => setStatusFilter(status)}
-                                className="whitespace-nowrap flex-shrink-0"
+                                className="whitespace-nowrap flex-shrink-0 text-xs px-2 sm:px-3"
                             >
-                                {status === 'ALL' ? 'All' : status.replace('_', ' ')}
+                                {status === 'ALL' ? 'All' : status === 'PENDING_VERIFICATION' ? 'Pending' : status.replace('_', ' ')}
                             </Button>
                         ))}
                     </div>
@@ -216,46 +220,46 @@ export default function InventoryPage() {
             </div>
 
             {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {filteredItems.map((item) => (
                         <Link key={item.id} href={`/inventory/${item.id}`}>
-                            <Card className="h-full hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-lg hover:-translate-y-1 bg-secondary border-border">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-start gap-3">
+                            <Card className="h-full hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-lg hover:-translate-y-0.5 sm:hover:-translate-y-1 bg-secondary border-border">
+                                <div className="space-y-2 sm:space-y-3">
+                                    <div className="flex justify-between items-start gap-2">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-semibold text-lg group-hover:text-primary transition-colors truncate">{item.name}</h3>
-                                            <p className="text-sm text-muted-foreground mt-1">{item.category}</p>
+                                            <h3 className="font-semibold text-base sm:text-lg group-hover:text-primary transition-colors truncate">{item.name}</h3>
+                                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{item.category}</p>
                                         </div>
-                                        <Badge variant={getStatusVariant(item.status)} className="uppercase text-[10px] tracking-wider font-semibold shrink-0">
-                                            {item.status.replace('_', ' ')}
+                                        <Badge variant={getStatusVariant(item.status)} className="uppercase text-[9px] sm:text-[10px] tracking-wider font-semibold shrink-0 px-1.5 sm:px-2">
+                                            {item.status === 'PENDING_VERIFICATION' ? 'PENDING' : item.status.replace('_', ' ')}
                                         </Badge>
                                     </div>
 
-                                    <div className="space-y-2.5 pt-3 border-t border-border/50">
-                                        <div className="flex items-start gap-2">
-                                            <p className="text-xs text-muted-foreground font-medium min-w-[60px]">ID</p>
-                                            <p className="font-mono text-foreground text-xs flex-1 min-w-0 truncate">{item.barcode}</p>
+                                    <div className="space-y-1.5 sm:space-y-2.5 pt-2 sm:pt-3 border-t border-border/50">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">ID</p>
+                                            <p className="font-mono text-foreground text-[10px] sm:text-xs flex-1 min-w-0 truncate">{item.barcode}</p>
                                         </div>
-                                        <div className="flex items-center gap-2 pt-1">
-                                            <p className="text-xs text-muted-foreground font-medium min-w-[60px]">Action</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">Action</p>
                                             <button
                                                 onClick={(e) => handlePrintQR(e, item)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] sm:text-xs font-medium"
                                             >
-                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                                                 </svg>
                                                 Print QR
                                             </button>
                                         </div>
                                         {item.assignedTo && (
-                                            <div className="flex items-start gap-2 pt-1">
-                                                <p className="text-xs text-muted-foreground font-medium min-w-[60px]">Assigned</p>
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary font-bold shrink-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">Assigned</p>
+                                                <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] sm:text-[10px] text-primary font-bold shrink-0">
                                                         {getUserName(item.assignedTo)?.charAt(0).toUpperCase()}
                                                     </div>
-                                                    <span className="text-foreground text-xs truncate">{getUserName(item.assignedTo)}</span>
+                                                    <span className="text-foreground text-[10px] sm:text-xs truncate">{getUserName(item.assignedTo)}</span>
                                                 </div>
                                             </div>
                                         )}

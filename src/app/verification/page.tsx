@@ -38,46 +38,53 @@ export default function VerificationPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Return Verification</h1>
-            <p className="text-muted-foreground">Review items returned by staff.</p>
+        <div className="space-y-4 sm:space-y-6">
+            <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Return Verification</h1>
+                <p className="text-sm text-muted-foreground mt-1">Review items returned by staff.</p>
+            </div>
 
             {pendingItems.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground">
+                <div className="text-center py-10 sm:py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground text-sm">
                     No items pending verification.
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {pendingItems.map((item) => (
-                        <Card key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 gap-4">
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-semibold text-lg">{item.name}</h3>
-                                    <Badge variant="secondary">{item.condition.replace('_', ' ')}</Badge>
+                        <Card key={item.id} className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                        <h3 className="font-semibold text-base sm:text-lg truncate">{item.name}</h3>
+                                        <Badge variant="secondary" className="text-[10px] sm:text-xs">{item.condition.replace('_', ' ')}</Badge>
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">ID: {item.barcode}</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Returned by: {item.assignedTo}</p>
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-1">ID: {item.barcode}</p>
-                                <p className="text-sm text-muted-foreground">Returned by: {item.assignedTo}</p>
                             </div>
 
-                            <div className="flex gap-2 w-full sm:w-auto">
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50 sm:border-0 sm:pt-0">
                                 <Button
                                     variant="success"
+                                    size="sm"
                                     onClick={() => handleVerify(item.id, 'AVAILABLE')}
-                                    className="flex-1 sm:flex-none"
+                                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                                 >
                                     Verify OK
                                 </Button>
                                 <Button
                                     variant="danger"
+                                    size="sm"
                                     onClick={() => handleVerify(item.id, 'DAMAGED')}
-                                    className="flex-1 sm:flex-none"
+                                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                                 >
-                                    Report Damage
+                                    Damage
                                 </Button>
                                 <Button
                                     variant="secondary"
+                                    size="sm"
                                     onClick={() => handleVerify(item.id, 'MAINTENANCE')}
-                                    className="flex-1 sm:flex-none"
+                                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                                 >
                                     Maintenance
                                 </Button>

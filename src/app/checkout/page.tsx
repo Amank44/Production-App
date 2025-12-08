@@ -245,22 +245,22 @@ export default function CheckoutPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
-            <div className="flex flex-col space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight">Checkout Equipment</h1>
-                <p className="text-muted-foreground">Scan items to add them to your checkout list.</p>
+        <div className="max-w-4xl mx-auto space-y-5 sm:space-y-8 pb-20">
+            <div className="flex flex-col space-y-1 sm:space-y-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Checkout Equipment</h1>
+                <p className="text-sm text-muted-foreground">Scan items to add them to your checkout list.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <Card className="p-6" variant="glass">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-                            <h3 className="font-semibold w-full sm:w-auto text-center sm:text-left">Add Items</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
+                <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+                    <Card className="p-4 sm:p-6" variant="glass">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+                            <h3 className="font-semibold text-sm sm:text-base">Add Items</h3>
                             <Button
                                 variant={showScanner ? 'secondary' : 'outline'}
                                 size="sm"
                                 onClick={() => setShowScanner(!showScanner)}
-                                className="w-full sm:w-auto"
+                                className="w-full sm:w-auto text-sm"
                             >
                                 {showScanner ? 'Hide Scanner' : 'Use Camera'}
                             </Button>
@@ -334,43 +334,43 @@ export default function CheckoutPage() {
                         </div>
                     </Card>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-semibold">Cart ({cart.length})</h2>
+                            <h2 className="text-lg sm:text-xl font-semibold">Cart ({cart.length})</h2>
                             {cart.length > 0 && (
-                                <Button variant="ghost" size="sm" onClick={() => setCart([])} className="text-muted-foreground hover:text-destructive">
+                                <Button variant="ghost" size="sm" onClick={() => setCart([])} className="text-muted-foreground hover:text-destructive text-xs sm:text-sm">
                                     Clear All
                                 </Button>
                             )}
                         </div>
 
                         {cart.length === 0 ? (
-                            <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground bg-muted/30">
-                                <svg className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="text-center py-8 sm:py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground bg-muted/30">
+                                <svg className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
-                                <p>No items in cart. Scan items to begin.</p>
+                                <p className="text-sm">No items in cart. Scan items to begin.</p>
                             </div>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-2 sm:space-y-3">
                                 {cart.map((item, index) => (
                                     <Card key={`${item.id}-${index}`} className="group hover:border-primary/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold shrink-0">
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold shrink-0 text-sm sm:text-base">
                                                 {index + 1}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-medium truncate">{item.name}</h3>
-                                                <p className="text-sm text-muted-foreground truncate">{item.barcode} • {item.category}</p>
+                                                <h3 className="font-medium text-sm sm:text-base truncate">{item.name}</h3>
+                                                <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.barcode} • {item.category}</p>
                                             </div>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => removeFromCart(item.id)}
-                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 w-8 h-8 sm:w-9 sm:h-9"
                                                 aria-label="Remove"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                                 </svg>
                                             </Button>
@@ -382,12 +382,12 @@ export default function CheckoutPage() {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <Card title="Checkout Details" className="sticky top-24">
-                        <div className="space-y-4">
+                <div className="space-y-4 sm:space-y-6">
+                    <Card title="Checkout Details" className="lg:sticky lg:top-20">
+                        <div className="space-y-3 sm:space-y-4">
                             {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                <div className="space-y-1.5 sm:space-y-2">
+                                    <label className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Checkout For
                                     </label>
                                     <Select
@@ -407,8 +407,8 @@ export default function CheckoutPage() {
                                 onChange={(e) => setProject(e.target.value)}
                             />
 
-                            <div className="pt-4 border-t border-border">
-                                <div className="flex justify-between text-sm mb-2">
+                            <div className="pt-3 sm:pt-4 border-t border-border">
+                                <div className="flex justify-between text-xs sm:text-sm mb-2">
                                     <span>Total Items:</span>
                                     <span className="font-medium">{cart.length}</span>
                                 </div>

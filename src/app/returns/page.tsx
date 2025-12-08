@@ -67,36 +67,38 @@ export default function ReturnsPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap justify-between items-center gap-4">
-                <h1 className="text-3xl font-bold tracking-tight">My Returns</h1>
+        <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Returns</h1>
                 <Button
                     onClick={handleSubmitReturn}
                     disabled={selectedItems.length === 0}
+                    className="w-full sm:w-auto"
+                    size="sm"
                 >
                     Return Selected ({selectedItems.length})
                 </Button>
             </div>
 
             {checkedOutItems.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground">
+                <div className="text-center py-10 sm:py-12 border-2 border-dashed border-border rounded-lg text-muted-foreground text-sm">
                     You have no items to return.
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                     {checkedOutItems.map((item) => (
                         <Card
                             key={item.id}
                             className={`cursor-pointer transition-all ${selectedItems.includes(item.id) ? 'ring-2 ring-primary border-transparent' : ''}`}
                         >
-                            <div className="flex items-start justify-between mb-4" onClick={() => toggleSelection(item.id)}>
-                                <div>
-                                    <h3 className="font-semibold text-lg">{item.name}</h3>
-                                    <p className="text-sm text-muted-foreground">{item.barcode}</p>
+                            <div className="flex items-start justify-between mb-3 sm:mb-4" onClick={() => toggleSelection(item.id)}>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="font-semibold text-base sm:text-lg truncate">{item.name}</h3>
+                                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.barcode}</p>
                                 </div>
-                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedItems.includes(item.id) ? 'border-primary bg-primary text-white' : 'border-muted'}`}>
+                                <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-2 ${selectedItems.includes(item.id) ? 'border-primary bg-primary text-white' : 'border-muted'}`}>
                                     {selectedItems.includes(item.id) && (
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                         </svg>
                                     )}
@@ -104,10 +106,10 @@ export default function ReturnsPage() {
                             </div>
 
                             {selectedItems.includes(item.id) && (
-                                <div className="mt-4 pt-4 border-t border-border space-y-2">
-                                    <label className="text-sm font-medium">Return Condition:</label>
+                                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border space-y-1.5 sm:space-y-2">
+                                    <label className="text-xs sm:text-sm font-medium">Return Condition:</label>
                                     <select
-                                        className="w-full h-10 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                        className="w-full h-9 sm:h-10 rounded-md border border-input bg-transparent px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                         value={conditions[item.id] || 'OK'}
                                         onChange={(e) => handleConditionChange(item.id, e.target.value as Condition)}
                                         onClick={(e) => e.stopPropagation()}
