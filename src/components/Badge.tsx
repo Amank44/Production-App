@@ -11,10 +11,10 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', cla
         default: 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
         secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'text-foreground',
-        destructive: 'border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20',
-        success: 'border-success bg-success/10 text-success hover:bg-success/20',
-        warning: 'border-warning bg-warning/10 text-warning hover:bg-warning/20',
-        orange: 'border-orange bg-orange/10 text-orange hover:bg-orange/20',
+        destructive: 'border-transparent bg-[#ff3b30]/10 text-[#ff3b30]',
+        success: 'border-transparent bg-[#34c759]/10 text-[#34c759]',
+        warning: 'border-transparent bg-[#ffcc00]/15 text-[#b38f00]',
+        orange: 'border-transparent bg-[#ff9500]/15 text-[#ff9500]',
     };
 
     return (

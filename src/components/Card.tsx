@@ -20,15 +20,15 @@ export const Card: React.FC<CardProps> = ({
     hover = false
 }) => {
     const variants = {
-        default: 'bg-secondary border-border shadow-sm',
-        glass: 'glass text-foreground',
-        outline: 'bg-transparent border-border text-foreground'
+        default: 'card-matte bg-white',
+        glass: 'glass text-foreground rounded-3xl',
+        outline: 'bg-transparent border border-input text-foreground rounded-3xl'
     };
 
-    const hoverStyles = hover ? 'transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/30 hover:bg-secondary/80' : '';
+    const hoverStyles = hover ? 'cursor-pointer' : '';
 
     return (
-        <div className={`rounded-xl border ${variants[variant]} ${hoverStyles} ${className}`}>
+        <div className={`${variants[variant]} ${hoverStyles} ${className}`}>
             {(title || description) && (
                 <div className="flex flex-col space-y-1 p-3 sm:p-4 md:p-6">
                     {title && <h3 className="text-lg sm:text-xl md:text-2xl font-semibold leading-none tracking-tight">{title}</h3>}

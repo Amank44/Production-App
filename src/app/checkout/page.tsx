@@ -70,15 +70,14 @@ export default function CheckoutPage() {
     const lastProcessedRef = React.useRef<{ code: string; time: number } | null>(null);
 
     const playSuccessSound = () => {
-        const audio = new Audio('/sounds/beep.mp3'); // We'll need to create this or use a data URI
-        // Using a simple oscillator beep for now to avoid external dependencies
+        // Using a simple oscillator beep for success
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 - high pitch for success
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
         osc.start();
         osc.stop(ctx.currentTime + 0.1);
@@ -86,6 +85,25 @@ export default function CheckoutPage() {
         // Vibrate if supported
         if (navigator.vibrate) {
             navigator.vibrate(200);
+        }
+    };
+
+    const playErrorSound = () => {
+        // Using a lower, harsher tone for error
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'square'; // Square wave sounds harsher
+        osc.frequency.setValueAtTime(220, ctx.currentTime); // A3 - low pitch for error
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2); // Slightly longer
+
+        // Double vibrate for error
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
         }
     };
 
@@ -112,13 +130,19 @@ export default function CheckoutPage() {
 
         if (!found) {
             setError(`Item not found: ${normalizedBarcode}`);
-            // Update last processed even on error to prevent spamming error messages
+            playErrorSound();
             lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
 
         if (found.status !== 'AVAILABLE') {
-            setError(`Item "${found.name}" is currently ${found.status}`);
+            const statusMessage = found.status === 'CHECKED_OUT'
+                ? 'checked out'
+                : found.status === 'MAINTENANCE'
+                    ? 'under maintenance'
+                    : found.status.toLowerCase().replace('_', ' ');
+            setError(`Item "${found.name}" is currently ${statusMessage}`);
+            playErrorSound();
             lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
@@ -126,6 +150,7 @@ export default function CheckoutPage() {
         // Check against current state (might be stale in rapid succession)
         if (cart.find(i => i.id === found.id)) {
             setError(`Item "${found.name}" is already in cart`);
+            playErrorSound();
             lastProcessedRef.current = { code: normalizedBarcode, time: now };
             return;
         }
@@ -266,11 +291,37 @@ export default function CheckoutPage() {
                             </Button>
                         </div>
 
+                        {/* Feedback Messages - Now at the top, visible on mobile */}
+                        {(error || successMessage) && (
+                            <div className="mb-4">
+                                {error && (
+                                    <div className="p-3 bg-[#ff3b30]/10 border border-[#ff3b30]/20 rounded-xl flex items-center animate-fade-in">
+                                        <div className="w-8 h-8 rounded-full bg-[#ff3b30]/20 flex items-center justify-center mr-3 flex-shrink-0">
+                                            <svg className="w-4 h-4 text-[#ff3b30]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-[14px] text-[#ff3b30] font-medium">{error}</p>
+                                    </div>
+                                )}
+                                {successMessage && (
+                                    <div className="p-3 bg-[#34c759]/10 border border-[#34c759]/20 rounded-xl flex items-center animate-fade-in">
+                                        <div className="w-8 h-8 rounded-full bg-[#34c759]/20 flex items-center justify-center mr-3 flex-shrink-0">
+                                            <svg className="w-4 h-4 text-[#34c759]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-[14px] text-[#34c759] font-medium">{successMessage}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {showScanner && (
                             <div className="mb-6 animate-accordion-down">
                                 <QRScanner
                                     onScan={handleQRScan}
-                                    onError={(err) => setError(err)}
+                                    onError={(err) => { setError(err); playErrorSound(); }}
                                     continuous={true}
                                 />
                                 <p className="text-xs text-center text-muted-foreground mt-2">
@@ -312,26 +363,6 @@ export default function CheckoutPage() {
                                 </div>
                             )}
                         </form>
-
-                        {/* Feedback Messages */}
-                        <div className="mt-4 min-h-[1.5rem]">
-                            {error && (
-                                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center animate-fade-in">
-                                    <svg className="w-5 h-5 text-destructive mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <p className="text-sm text-destructive font-medium">{error}</p>
-                                </div>
-                            )}
-                            {successMessage && (
-                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center animate-fade-in">
-                                    <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{successMessage}</p>
-                                </div>
-                            )}
-                        </div>
                     </Card>
 
                     <div className="space-y-3 sm:space-y-4">
@@ -383,47 +414,60 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="space-y-4 sm:space-y-6">
-                    <Card title="Checkout Details" className="lg:sticky lg:top-20">
-                        <div className="space-y-3 sm:space-y-4">
-                            {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
-                                <div className="space-y-1.5 sm:space-y-2">
-                                    <label className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Checkout For
-                                    </label>
-                                    <Select
-                                        value={selectedUserId}
-                                        onChange={setSelectedUserId}
-                                        options={users.map(u => ({
-                                            value: u.id,
-                                            label: `${u.name} (${u.role})`
-                                        }))}
-                                    />
-                                </div>
-                            )}
-                            <Input
-                                label="Project / Shoot Name"
-                                placeholder="e.g. Documentary Shoot A"
-                                value={project}
-                                onChange={(e) => setProject(e.target.value)}
-                            />
+                    <div className="bg-white rounded-2xl p-5 sm:p-6 card-apple lg:sticky lg:top-20">
+                        <h3 className="text-[17px] font-semibold text-[#1d1d1f] mb-5">Checkout Details</h3>
 
-                            <div className="pt-3 sm:pt-4 border-t border-border">
-                                <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span>Total Items:</span>
-                                    <span className="font-medium">{cart.length}</span>
+                        <div className="space-y-4">
+                            {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
+                                <Select
+                                    label="Checkout For"
+                                    value={selectedUserId}
+                                    onChange={setSelectedUserId}
+                                    options={users.map(u => ({
+                                        value: u.id,
+                                        label: `${u.name} (${u.role})`
+                                    }))}
+                                />
+                            )}
+
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-medium text-[#86868b]">
+                                    Project / Shoot Name
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Documentary Shoot A"
+                                    value={project}
+                                    onChange={(e) => setProject(e.target.value)}
+                                    className="w-full h-11 px-4 bg-[#f5f5f7] border-0 rounded-xl text-[15px] text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
+                                />
+                            </div>
+
+                            <div className="pt-4 mt-4 border-t border-[#f5f5f7]">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-[15px] text-[#86868b]">Total Items</span>
+                                    <span className="text-[20px] font-semibold text-[#1d1d1f]">{cart.length}</span>
                                 </div>
-                                <Button
-                                    className="w-full"
-                                    size="lg"
+                                <button
                                     onClick={handleCheckout}
                                     disabled={cart.length === 0 || isLoading}
-                                    isLoading={isLoading}
+                                    className="w-full h-12 bg-[#0071e3] text-white rounded-xl text-[15px] font-medium hover:bg-[#0077ed] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
+                                    {isLoading ? (
+                                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
                                     Confirm Checkout
-                                </Button>
+                                </button>
                             </div>
                         </div>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </div>

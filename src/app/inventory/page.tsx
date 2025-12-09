@@ -98,7 +98,7 @@ export default function InventoryPage() {
     const getStatusVariant = (status: EquipmentStatus) => {
         switch (status) {
             case 'AVAILABLE': return 'success';
-            case 'CHECKED_OUT': return 'secondary';
+            case 'CHECKED_OUT': return 'orange';
             case 'PENDING_VERIFICATION': return 'warning';
             case 'DAMAGED': return 'destructive';
             case 'LOST': return 'destructive';
@@ -205,67 +205,88 @@ export default function InventoryPage() {
                 <div className="w-full overflow-hidden -mx-3 px-3">
                     <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'PENDING_VERIFICATION', 'MAINTENANCE'] as const).map((status) => (
-                            <Button
+                            <button
                                 key={status}
-                                variant={statusFilter === status ? 'primary' : 'outline'}
-                                size="sm"
                                 onClick={() => setStatusFilter(status)}
-                                className="whitespace-nowrap flex-shrink-0 text-xs px-2 sm:px-3"
+                                className={`whitespace-nowrap flex-shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200 ${statusFilter === status
+                                    ? 'bg-[#1d1d1f] text-white'
+                                    : 'bg-transparent text-[#86868b] hover:bg-[#e8e8ed] hover:text-[#1d1d1f]'
+                                    }`}
                             >
-                                {status === 'ALL' ? 'All' : status === 'PENDING_VERIFICATION' ? 'Pending' : status.replace('_', ' ')}
-                            </Button>
+                                {status === 'ALL' ? 'All' : status === 'PENDING_VERIFICATION' ? 'Pending' : status.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                            </button>
                         ))}
                     </div>
                 </div>
             </div>
 
             {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filteredItems.map((item) => (
                         <Link key={item.id} href={`/inventory/${item.id}`}>
-                            <Card className="h-full hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-lg hover:-translate-y-0.5 sm:hover:-translate-y-1 bg-secondary border-border">
-                                <div className="space-y-2 sm:space-y-3">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-semibold text-base sm:text-lg group-hover:text-primary transition-colors truncate">{item.name}</h3>
-                                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{item.category}</p>
-                                        </div>
-                                        <Badge variant={getStatusVariant(item.status)} className="uppercase text-[9px] sm:text-[10px] tracking-wider font-semibold shrink-0 px-1.5 sm:px-2">
-                                            {item.status === 'PENDING_VERIFICATION' ? 'PENDING' : item.status.replace('_', ' ')}
-                                        </Badge>
+                            <div className="group card-apple p-5 cursor-pointer">
+                                {/* Top Row: Name + Status */}
+                                <div className="flex items-start justify-between gap-3 mb-4">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-[15px] font-semibold text-gray-900 leading-snug truncate group-hover:text-[#0071e3] transition-colors">
+                                            {item.name}
+                                        </h3>
+                                        <p className="text-[13px] text-gray-500 mt-0.5 truncate">
+                                            {item.category}
+                                        </p>
+                                    </div>
+                                    <Badge
+                                        variant={getStatusVariant(item.status)}
+                                        className="text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0"
+                                    >
+                                        {item.status === 'PENDING_VERIFICATION' ? 'Pending' : item.status.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                                    </Badge>
+                                </div>
+
+                                {/* Info Grid */}
+                                <div className="space-y-2.5 pt-3 border-t border-gray-100">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[12px] text-gray-400">Equipment ID</span>
+                                        <span className="text-[12px] font-mono text-gray-600 bg-gray-50 px-2 py-0.5 rounded">
+                                            {item.barcode}
+                                        </span>
                                     </div>
 
-                                    <div className="space-y-1.5 sm:space-y-2.5 pt-2 sm:pt-3 border-t border-border/50">
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">ID</p>
-                                            <p className="font-mono text-foreground text-[10px] sm:text-xs flex-1 min-w-0 truncate">{item.barcode}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">Action</p>
-                                            <button
-                                                onClick={(e) => handlePrintQR(e, item)}
-                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] sm:text-xs font-medium"
-                                            >
-                                                <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                                </svg>
-                                                Print QR
-                                            </button>
-                                        </div>
-                                        {item.assignedTo && (
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium min-w-[45px] sm:min-w-[60px]">Assigned</p>
-                                                <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-                                                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] sm:text-[10px] text-primary font-bold shrink-0">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[12px] text-gray-400">Assigned to</span>
+                                        {item.assignedTo ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#0071e3] to-[#00c7be] flex items-center justify-center">
+                                                    <span className="text-[9px] font-bold text-white">
                                                         {getUserName(item.assignedTo)?.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-foreground text-[10px] sm:text-xs truncate">{getUserName(item.assignedTo)}</span>
+                                                    </span>
                                                 </div>
+                                                <span className="text-[12px] text-gray-700 font-medium truncate max-w-[80px]">
+                                                    {getUserName(item.assignedTo)}
+                                                </span>
                                             </div>
+                                        ) : (
+                                            <span className="text-[12px] text-gray-400">—</span>
                                         )}
                                     </div>
                                 </div>
-                            </Card>
+
+                                {/* Action Row */}
+                                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                                    <button
+                                        onClick={(e) => handlePrintQR(e, item)}
+                                        className="text-[12px] text-[#0071e3] font-medium flex items-center gap-1 hover:underline"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                        Print QR
+                                    </button>
+                                    <svg className="w-4 h-4 text-gray-300 group-hover:text-[#0071e3] group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </Link>
                     ))}
                 </div>

@@ -54,67 +54,88 @@ export const Select: React.FC<SelectProps> = ({
     }, [isOpen]);
 
     return (
-        <div className={`space-y-2 ${className}`} ref={containerRef}>
+        <div className={`${className}`} ref={containerRef}>
             {label && (
-                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                <label className="block text-[13px] font-medium text-[#86868b] mb-2">
                     {label}
                 </label>
             )}
             <div className="relative">
+                {/* Trigger Button */}
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className={`flex h-10 w-full items-center justify-between rounded-md border bg-secondary px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${isOpen ? 'border-primary ring-2 ring-ring ring-offset-2' : 'border-input hover:border-primary/50'}`}
+                    className={`flex h-11 w-full items-center justify-between rounded-xl bg-[#f5f5f7] px-4 text-[15px] transition-all duration-200 ${isOpen
+                            ? 'ring-2 ring-[#0071e3]'
+                            : 'hover:bg-[#e8e8ed]'
+                        }`}
                 >
-                    <span className={selectedOption ? 'text-foreground' : 'text-muted-foreground'}>
+                    <span className={selectedOption ? 'text-[#1d1d1f]' : 'text-[#86868b]'}>
                         {selectedOption ? selectedOption.label : placeholder}
                     </span>
                     <svg
-                        className={`h-4 w-4 opacity-50 transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary opacity-100' : ''}`}
+                        className={`h-4 w-4 text-[#86868b] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
+                        strokeWidth={2}
                     >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
 
+                {/* Dropdown Panel */}
                 {isOpen && (
-                    <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-md border border-border bg-secondary shadow-xl animate-scale-in origin-top">
-                        <div className="p-2 border-b border-border/50">
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                className="w-full bg-background/50 border border-border rounded-sm px-2 py-1.5 text-sm focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/70"
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                            />
+                    <div
+                        className="absolute z-[100] mt-2 w-full overflow-hidden rounded-2xl bg-white border border-[#e5e5e5]"
+                        style={{ boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)' }}
+                    >
+                        {/* Search input */}
+                        <div className="p-3 pb-0">
+                            <div className="flex items-center h-10 bg-[#f5f5f7] rounded-xl overflow-hidden">
+                                <div className="flex items-center justify-center w-10 h-10 flex-shrink-0">
+                                    <svg className="w-4 h-4 text-[#86868b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    className="flex-1 h-full bg-transparent text-[14px] text-[#1d1d1f] placeholder:text-[#86868b] pr-3 focus:outline-none"
+                                    style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
+                                    placeholder="Search..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                            </div>
                         </div>
-                        <div className="max-h-60 overflow-auto p-1">
+
+                        {/* Options list */}
+                        <div className="max-h-48 overflow-auto p-3">
                             {filteredOptions.length === 0 ? (
-                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                <div className="py-6 text-center text-[14px] text-[#86868b]">
                                     No results found.
                                 </div>
                             ) : (
-                                filteredOptions.map((option) => (
+                                filteredOptions.map((option, index) => (
                                     <div
                                         key={option.value}
                                         onClick={() => {
                                             onChange(option.value);
                                             setIsOpen(false);
                                         }}
-                                        className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none transition-colors hover:bg-primary/10 hover:text-primary ${value === option.value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'
+                                        className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-[14px] transition-colors ${index < filteredOptions.length - 1 ? 'mb-1' : ''
+                                            } ${value === option.value
+                                                ? 'bg-[#0071e3] text-white'
+                                                : 'text-[#1d1d1f] hover:bg-[#f5f5f7]'
                                             }`}
                                     >
-                                        {option.label}
+                                        <span>{option.label}</span>
                                         {value === option.value && (
-                                            <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </span>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
                                         )}
                                     </div>
                                 ))

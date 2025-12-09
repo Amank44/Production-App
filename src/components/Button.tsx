@@ -15,23 +15,23 @@ export const Button: React.FC<ButtonProps> = ({
     disabled,
     ...props
 }) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
+    const baseStyles = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants = {
-        primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all border border-transparent',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent shadow-sm',
-        outline: 'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground text-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground text-foreground',
-        danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-md',
-        success: 'bg-green-600 text-white hover:bg-green-700 shadow-md',
-        glass: 'glass hover:bg-white/40 text-foreground border-white/20 shadow-sm backdrop-blur-md',
+        primary: 'bg-[#0071e3] text-white hover:bg-[#0077ed] active:scale-[0.98]',
+        secondary: 'bg-[#e8e8ed] text-[#1d1d1f] hover:bg-[#dcdce0] active:scale-[0.98]',
+        outline: 'bg-transparent text-[#1d1d1f] hover:bg-[#f5f5f7] active:scale-[0.98]',
+        ghost: 'bg-transparent text-[#1d1d1f] hover:bg-[#f5f5f7] active:scale-[0.98]',
+        danger: 'bg-[#ff3b30] text-white hover:bg-[#ff453a] active:scale-[0.98]',
+        success: 'bg-[#34c759] text-white hover:bg-[#30d158] active:scale-[0.98]',
+        glass: 'bg-white/70 backdrop-blur-xl text-[#1d1d1f] hover:bg-white/90 active:scale-[0.98]',
     };
 
     const sizes = {
-        sm: 'h-9 px-3 text-sm',
-        md: 'h-10 px-4 py-2',
-        lg: 'h-12 px-8 text-lg',
-        icon: 'h-9 w-9 p-0',
+        sm: 'h-8 px-4 text-[13px] font-medium',
+        md: 'h-11 px-5 text-[15px] font-medium',
+        lg: 'h-12 px-6 text-[17px] font-semibold',
+        icon: 'h-10 w-10 p-0',
     };
 
     return (
