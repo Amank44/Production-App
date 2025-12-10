@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { MobileHeader } from './MobileHeader';
+import { BottomTabBar } from './BottomTabBar';
 import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 
 const MainContent = ({ children, isPublicPage }: { children: React.ReactNode; isPublicPage: boolean }) => {
@@ -13,15 +15,22 @@ const MainContent = ({ children, isPublicPage }: { children: React.ReactNode; is
 
     return (
         <div className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${user && !isPublicPage
-                ? isCollapsed
-                    ? 'md:pl-[72px]'
-                    : 'md:pl-[260px]'
-                : ''
+            ? isCollapsed
+                ? 'md:pl-[72px]'
+                : 'md:pl-[260px]'
+            : ''
             }`}>
+            {/* Desktop Header */}
             {!isPublicPage && <Header />}
-            <main className={`flex-1 px-3 py-4 sm:p-6 lg:p-8 ${user && !isPublicPage ? 'mt-14 sm:mt-16 pb-20 sm:pb-6' : ''} w-full mx-auto overflow-x-hidden`}>
+            {/* Mobile Header */}
+            {!isPublicPage && <MobileHeader />}
+
+            <main className={`flex-1 px-4 py-4 sm:p-6 lg:p-8 ${user && !isPublicPage ? 'mt-[calc(44px+env(safe-area-inset-top))] md:mt-[44px] pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-6' : ''} w-full mx-auto overflow-x-hidden`}>
                 {children}
             </main>
+
+            {/* Mobile Bottom Tab Bar */}
+            {!isPublicPage && <BottomTabBar />}
         </div>
     );
 };

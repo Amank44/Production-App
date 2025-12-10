@@ -252,3 +252,315 @@ textarea:focus {
     touch-action: manipulation;
   }
 }
+
+/* ===== MOBILE NATIVE APP STYLES ===== */
+
+/* Safe area insets for notched devices */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Utility classes for safe areas */
+.pt-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Mobile body styles for PWA */
+@media (max-width: 767px) {
+  html {
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
+  }
+
+  body {
+    /* Enable momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
+    /* Disable pull-to-refresh in PWA */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Native-like active states */
+  button:active,
+  a:active,
+  [role="button"]:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: opacity 0.1s ease, transform 0.1s ease;
+  }
+
+  /* Remove focus outlines for touch, keep for keyboard */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Enable hardware acceleration for smooth animations */
+  .card-apple,
+  .card-matte,
+  .glass {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
+
+/* iOS-style navigation bar appearance */
+.mobile-nav-blur {
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+/* Native-like list items */
+.list-item-native {
+  position: relative;
+  padding: 12px 16px;
+  background: white;
+  transition: background-color 0.15s ease;
+}
+
+.list-item-native:active {
+  background-color: #e5e5ea;
+}
+
+.list-item-native::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 0;
+  bottom: 0;
+  height: 0.5px;
+  background-color: #c6c6c8;
+}
+
+.list-item-native:last-child::after {
+  display: none;
+}
+
+/* iOS-style section headers */
+.section-header-ios {
+  font-size: 13px;
+  font-weight: 400;
+  color: #86868b;
+  text-transform: uppercase;
+  letter-spacing: -0.08px;
+  padding: 8px 16px 6px;
+}
+
+/* iOS-style grouped container */
+.grouped-container {
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0 16px;
+}
+
+/* Pull-to-refresh indicator style */
+.ptr-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  color: #86868b;
+}
+
+/* Native switch style */
+.native-switch {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  border-radius: 31px;
+  background-color: #e9e9eb;
+  transition: background-color 0.25s ease;
+  cursor: pointer;
+}
+
+.native-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 27px;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: transform 0.25s ease;
+}
+
+.native-switch.active {
+  background-color: #34c759;
+}
+
+.native-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* iOS-style action sheet animation */
+@keyframes slide-up-sheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.action-sheet {
+  animation: slide-up-sheet 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* iOS-style modal animation */
+@keyframes zoom-in-modal {
+  from {
+    transform: scale(1.05);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-ios {
+  animation: zoom-in-modal 0.2s ease-out;
+}
+
+/* Haptic feedback indicator (visual) */
+.haptic-light::after {
+  content: '';
+  animation: haptic-pulse 0.1s ease-out;
+}
+
+@keyframes haptic-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.97);
+  }
+}
+
+/* Large title style for iOS */
+.large-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.37px;
+  line-height: 41px;
+}
+
+/* Inline title (navigation bar) */
+.inline-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.41px;
+  line-height: 22px;
+}
+
+/* Search bar iOS style */
+.search-bar-ios {
+  background-color: rgba(118, 118, 128, 0.12);
+  border-radius: 10px;
+  padding: 7px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-bar-ios input {
+  background: transparent !important;
+  border: none !important;
+  font-size: 17px;
+  color: #1d1d1f;
+  padding: 0 !important;
+  margin: 0;
+}
+
+.search-bar-ios input::placeholder {
+  color: #8e8e93;
+}
+
+/* Segmented control iOS style */
+.segmented-control {
+  display: flex;
+  background-color: rgba(118, 118, 128, 0.12);
+  border-radius: 8.91px;
+  padding: 2px;
+}
+
+.segmented-control-item {
+  flex: 1;
+  padding: 7px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d1d1f;
+  border-radius: 6.93px;
+  transition: all 0.2s ease;
+}
+
+.segmented-control-item.active {
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Badge notification style */
+.badge-notification {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background-color: #ff3b30;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Desktop-only utilities */
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Mobile-only utilities */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Adjust card padding for mobile */
+  .card-apple,
+  .card-matte {
+    border-radius: 12px;
+  }
+
+  /* Full-width mobile cards */
+  .card-full-mobile {
+    margin-left: -16px;
+    margin-right: -16px;
+    border-radius: 0;
+  }
+}

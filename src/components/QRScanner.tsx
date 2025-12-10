@@ -21,7 +21,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuou
     const lastScannedRef = useRef<{ text: string; time: number } | null>(null);
 
     const startScanning = async () => {
-        // Check if we're in a secure context (HTTPS or localhost)
         if (!isSecureContext) {
             const errorMsg = 'Camera access requires HTTPS. Please use autocomplete or manual entry instead.';
             setError(errorMsg);
@@ -31,7 +30,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuou
         try {
             setError('');
 
-            // Clean up any existing scanner first
             if (scannerRef.current && isInitialized.current) {
                 try {
                     await scannerRef.current.stop();
@@ -55,7 +53,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuou
                 config,
                 (decodedText) => {
                     const now = Date.now();
-                    // Prevent duplicate scans of the same code within 2 seconds
                     if (lastScannedRef.current &&
                         lastScannedRef.current.text === decodedText &&
                         now - lastScannedRef.current.time < 2000) {
@@ -81,7 +78,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuou
             setError(errorMsg);
             if (onError) onError(errorMsg);
             console.error('QR Scanner Error:', err);
-            // Reset state on error
             scannerRef.current = null;
             isInitialized.current = false;
         }
@@ -172,14 +168,253 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, continuou
                                 <li>Try using manual entry or autocomplete instead</li>
                             </ul>
                         </div>
-                        <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded">
-                            <p className="text-xs text-blue-600 dark:text-blue-400">
-                                💡 <strong>Tip:</strong> Use the autocomplete feature below - just start typing the equipment name or barcode!
-                            </p>
-                        </div>
                     </div>
                 )}
             </div>
         </Card>
+    );
+};
+
+// Mobile-optimized immersive scanner component with auto-start and camera refresh
+interface MobileScannerProps {
+    onScan: (decodedText: string) => void;
+    onError?: (error: string) => void;
+    onClose?: () => void;
+    autoStart?: boolean;
+}
+
+export const MobileScanner: React.FC<MobileScannerProps> = ({
+    onScan,
+    onError,
+    onClose,
+    autoStart = true
+}) => {
+    const [isScanning, setIsScanning] = useState(false);
+    const [error, setError] = useState<string>('');
+    const [scanCount, setScanCount] = useState(0);
+    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const isInitialized = useRef(false);
+    const [scannerId] = useState(() => `mobile-qr-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+    const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
+    const lastScannedRef = useRef<{ text: string; time: number } | null>(null);
+
+    const startScanning = async () => {
+        if (!isSecureContext) {
+            const errorMsg = 'Camera access requires HTTPS.';
+            setError(errorMsg);
+            if (onError) onError(errorMsg);
+            return;
+        }
+
+        try {
+            setError('');
+
+            if (scannerRef.current && isInitialized.current) {
+                try {
+                    await scannerRef.current.stop();
+                    scannerRef.current.clear();
+                } catch {
+                    // Ignore cleanup errors
+                }
+            }
+
+            const scanner = new Html5Qrcode(scannerId);
+            scannerRef.current = scanner;
+
+            const config = {
+                fps: 15,
+                qrbox: { width: 280, height: 280 },
+                aspectRatio: 1.0,
+            };
+
+            await scanner.start(
+                { facingMode: 'environment' },
+                config,
+                async (decodedText) => {
+                    const now = Date.now();
+                    if (lastScannedRef.current &&
+                        lastScannedRef.current.text === decodedText &&
+                        now - lastScannedRef.current.time < 1500) {
+                        return;
+                    }
+
+                    lastScannedRef.current = { text: decodedText, time: now };
+                    setScanCount(prev => prev + 1);
+                    onScan(decodedText);
+
+                    // Brief pause then refresh camera for fresh data
+                    try {
+                        await scanner.pause(true);
+                        setTimeout(async () => {
+                            try {
+                                await scanner.resume();
+                            } catch {
+                                // If resume fails, restart
+                                refreshCamera();
+                            }
+                        }, 300);
+                    } catch {
+                        // Ignore pause errors
+                    }
+                },
+                () => { }
+            );
+
+            setIsScanning(true);
+            isInitialized.current = true;
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Failed to start camera';
+            setError(errorMsg);
+            if (onError) onError(errorMsg);
+            console.error('Mobile Scanner Error:', err);
+            scannerRef.current = null;
+            isInitialized.current = false;
+        }
+    };
+
+    const stopScanning = async () => {
+        if (scannerRef.current && isInitialized.current) {
+            try {
+                await scannerRef.current.stop();
+                scannerRef.current.clear();
+                scannerRef.current = null;
+                isInitialized.current = false;
+            } catch (err) {
+                console.error('Error stopping scanner:', err);
+            }
+        }
+        setIsScanning(false);
+    };
+
+    const refreshCamera = async () => {
+        await stopScanning();
+        setTimeout(() => {
+            startScanning();
+        }, 100);
+    };
+
+    // Auto-start on mount
+    useEffect(() => {
+        if (autoStart) {
+            const timer = setTimeout(() => {
+                startScanning();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [autoStart]);
+
+    useEffect(() => {
+        return () => {
+            stopScanning();
+        };
+    }, []);
+
+    return (
+        <div className="relative bg-black rounded-t-3xl overflow-hidden">
+            {/* Scanner container */}
+            <div
+                id={scannerId}
+                className="w-full"
+                style={{
+                    width: '100%',
+                    height: '320px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}
+            />
+
+            {/* Scan overlay with corners */}
+            {isScanning && (
+                <div className="absolute inset-0 pointer-events-none" style={{ top: 0, height: '320px' }}>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px]">
+                        <div className="absolute top-0 left-0 w-10 h-10 border-white rounded-tl-2xl" style={{ borderWidth: '4px 0 0 4px' }} />
+                        <div className="absolute top-0 right-0 w-10 h-10 border-white rounded-tr-2xl" style={{ borderWidth: '4px 4px 0 0' }} />
+                        <div className="absolute bottom-0 left-0 w-10 h-10 border-white rounded-bl-2xl" style={{ borderWidth: '0 0 4px 4px' }} />
+                        <div className="absolute bottom-0 right-0 w-10 h-10 border-white rounded-br-2xl" style={{ borderWidth: '0 4px 4px 0' }} />
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#0071e3] to-transparent animate-scan-line rounded-full" />
+                    </div>
+                </div>
+            )}
+
+            {/* Scan count indicator */}
+            {scanCount > 0 && (
+                <div className="absolute top-5 left-5 px-4 py-2 bg-[#34c759] rounded-full shadow-lg">
+                    <span className="text-white text-[14px] font-bold">{scanCount} scanned</span>
+                </div>
+            )}
+
+            {/* Close button */}
+            {onClose && (
+                <button
+                    onClick={() => {
+                        stopScanning();
+                        onClose();
+                    }}
+                    className="absolute top-5 right-5 w-11 h-11 bg-black/40 backdrop-blur-xl rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
+                >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            )}
+
+            {/* Loading state */}
+            {!isScanning && !error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black" style={{ height: '320px' }}>
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" style={{ borderWidth: '3px' }} />
+                        <p className="text-white/80 text-[17px] font-medium">Starting camera...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Error state */}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/95 p-8" style={{ height: '320px' }}>
+                    <div className="text-center">
+                        <div className="w-20 h-20 bg-[#ff3b30]/20 rounded-full flex items-center justify-center mx-auto mb-5">
+                            <svg className="w-10 h-10 text-[#ff3b30]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <p className="text-white text-[20px] font-bold mb-2">Camera Error</p>
+                        <p className="text-white/50 text-[15px] mb-6">{error}</p>
+                        <button
+                            onClick={startScanning}
+                            className="px-8 py-3.5 bg-[#0071e3] text-white rounded-2xl text-[17px] font-semibold active:scale-95 transition-transform"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Bottom hint */}
+            <div className="bg-gradient-to-t from-black via-black/80 to-transparent absolute bottom-0 left-0 right-0 px-6 py-5 text-center">
+                <p className="text-white/70 text-[15px] font-medium">
+                    {isScanning ? 'Align QR code within the frame' : 'Initializing...'}
+                </p>
+            </div>
+
+            <style jsx global>{`
+                #${scannerId} video {
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: cover !important;
+                    display: block !important;
+                }
+                #${scannerId} canvas {
+                    display: none !important;
+                }
+                @keyframes scan-line {
+                    0% { top: 0; opacity: 1; }
+                    50% { opacity: 0.6; }
+                    100% { top: calc(100% - 4px); opacity: 1; }
+                }
+                .animate-scan-line {
+                    animation: scan-line 2.5s ease-in-out infinite;
+                }
+            `}</style>
+        </div>
     );
 };
