@@ -10,10 +10,13 @@ export default function VerificationPage() {
     const router = useRouter();
     const { user } = useAuth();
     const [pendingItems, setPendingItems] = useState<Equipment[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
 
     const loadItems = React.useCallback(async () => {
         const items = await storage.getEquipment();
+        const txns = await storage.getTransactions();
         setPendingItems(items.filter(i => i.status === 'PENDING_VERIFICATION'));
+        setTransactions(txns);
     }, []);
 
     useEffect(() => {
@@ -26,12 +29,74 @@ export default function VerificationPage() {
     }, [user, router, loadItems]);
 
     const handleVerify = async (id: string, status: 'AVAILABLE' | 'DAMAGED' | 'MAINTENANCE') => {
-        await storage.updateEquipment(id, {
-            status,
-            assignedTo: undefined,
-            lastActivity: new Date().toISOString()
-        });
-        loadItems();
+        try {
+            // Get the item being verified
+            const items = await storage.getEquipment();
+            const item = items.find(i => i.id === id);
+
+            if (!item) {
+                alert('Item not found');
+                return;
+            }
+
+            // Update the item status
+            await storage.updateEquipment(id, {
+                status,
+                assignedTo: undefined,
+                lastActivity: new Date().toISOString()
+            });
+
+            // Check if this item belongs to any open transaction
+            const transactions = await storage.getTransactions();
+            const relatedTransaction = transactions.find(
+                t => t.status === 'OPEN' && t.items.includes(id)
+            );
+
+            if (relatedTransaction) {
+                // Get all equipment to check if all items from this transaction are returned
+                const updatedItems = await storage.getEquipment();
+                const transactionItems = updatedItems.filter(
+                    i => relatedTransaction.items.includes(i.id)
+                );
+
+                // Check if all items are no longer checked out
+                const allItemsReturned = transactionItems.every(
+                    i => i.status !== 'CHECKED_OUT' && i.status !== 'PENDING_VERIFICATION'
+                );
+
+                if (allItemsReturned) {
+                    // Close the transaction
+                    await storage.updateTransaction(relatedTransaction.id, {
+                        status: 'CLOSED'
+                    });
+
+                    // Log the transaction closure
+                    await storage.addLog({
+                        id: crypto.randomUUID(),
+                        action: 'EDIT',
+                        entityId: relatedTransaction.id,
+                        userId: user!.id,
+                        timestamp: new Date().toISOString(),
+                        details: `Transaction automatically closed - all items returned and verified`,
+                    });
+
+                    alert(`Item verified! Transaction "${relatedTransaction.project || 'Unspecified'}" has been automatically closed as all items are returned.`);
+                } else {
+                    alert('Item verified successfully!');
+                }
+            } else {
+                alert('Item verified successfully!');
+            }
+
+            loadItems();
+        } catch (error) {
+            console.error('Error verifying item:', error);
+            alert('Error verifying item. Please try again.');
+        }
+    };
+
+    const getItemTransaction = (itemId: string) => {
+        return transactions.find(t => t.items.includes(itemId));
     };
 
     return (
@@ -72,6 +137,17 @@ export default function VerificationPage() {
                                         <p className="text-[13px] text-[#86868b]">
                                             <span className="text-[#1d1d1f] font-medium">Returned by:</span> {item.assignedTo?.split('-')[0] || 'Unknown'}
                                         </p>
+                                        {(() => {
+                                            const txn = getItemTransaction(item.id);
+                                            return txn ? (
+                                                <p className="text-[13px] text-[#86868b]">
+                                                    <span className="text-[#1d1d1f] font-medium">Project:</span>{' '}
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[11px] font-medium">
+                                                        {txn.project || 'Unspecified'}
+                                                    </span>
+                                                </p>
+                                            ) : null;
+                                        })()}
                                     </div>
                                 </div>
 
