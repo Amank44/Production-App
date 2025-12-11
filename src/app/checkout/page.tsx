@@ -23,6 +23,7 @@ export default function CheckoutPage() {
     const [showScanner, setShowScanner] = useState(false);
     const [suggestions, setSuggestions] = useState<Equipment[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -66,6 +67,58 @@ export default function CheckoutPage() {
             return () => clearTimeout(timer);
         }
     }, [error, successMessage]);
+
+    // Load cart from sessionStorage on mount
+    useEffect(() => {
+        const savedCart = sessionStorage.getItem('checkout-cart');
+        if (savedCart) {
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                setCart(parsedCart);
+            } catch {
+                // Invalid data, clear it
+                sessionStorage.removeItem('checkout-cart');
+            }
+        }
+    }, []);
+
+    // Save cart to sessionStorage whenever it changes
+    useEffect(() => {
+        if (cart.length > 0) {
+            sessionStorage.setItem('checkout-cart', JSON.stringify(cart));
+        } else {
+            sessionStorage.removeItem('checkout-cart');
+        }
+    }, [cart]);
+
+    // Handle back button behavior for scanner and modals
+    useEffect(() => {
+        const handleBackButton = (e: PopStateEvent) => {
+            // If scanner is open, close it instead of navigating back
+            if (showScanner) {
+                e.preventDefault();
+                setShowScanner(false);
+                // Push state again to prevent actual navigation
+                window.history.pushState({ modal: 'scanner' }, '');
+                return;
+            }
+            // If clear confirmation is open, close it
+            if (showClearConfirm) {
+                e.preventDefault();
+                setShowClearConfirm(false);
+                window.history.pushState({ modal: 'clearConfirm' }, '');
+                return;
+            }
+        };
+
+        // Add a history entry when scanner opens
+        if (showScanner || showClearConfirm) {
+            window.history.pushState({ modal: showScanner ? 'scanner' : 'clearConfirm' }, '');
+        }
+
+        window.addEventListener('popstate', handleBackButton);
+        return () => window.removeEventListener('popstate', handleBackButton);
+    }, [showScanner, showClearConfirm]);
 
     const lastProcessedRef = React.useRef<{ code: string; time: number } | null>(null);
 
@@ -225,6 +278,17 @@ export default function CheckoutPage() {
 
     const removeFromCart = (id: string) => {
         setCart(cart.filter(i => i.id !== id));
+    };
+
+    const handleClearAll = () => {
+        if (cart.length === 0) return;
+        setShowClearConfirm(true);
+    };
+
+    const confirmClearAll = () => {
+        setCart([]);
+        setShowClearConfirm(false);
+        setSuccessMessage('Cart cleared successfully');
     };
 
     const handleCheckout = async () => {
@@ -513,6 +577,56 @@ export default function CheckoutPage() {
                     </div>
                 )}
 
+                {/* Clear All Confirmation Modal - iOS Style */}
+                {showClearConfirm && (
+                    <div className="fixed inset-0 z-[100] flex items-end justify-center pb-8 px-4">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                            onClick={() => setShowClearConfirm(false)}
+                        />
+
+                        {/* Modal Content - iOS Action Sheet Style */}
+                        <div className="relative w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300">
+                            {/* Main Action Card */}
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl mb-2">
+                                {/* Header */}
+                                <div className="px-6 pt-6 pb-4 text-center">
+                                    {/* Warning Icon */}
+                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-[#ff9500] to-[#ff3b30] rounded-full flex items-center justify-center shadow-lg shadow-[#ff3b30]/30">
+                                        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-[20px] font-bold text-[#1d1d1f] mb-2">Clear Cart?</h3>
+                                    <p className="text-[15px] text-[#8e8e93] leading-relaxed">
+                                        Are you sure you want to remove all <span className="font-semibold text-[#1d1d1f]">{cart.length}</span> {cart.length === 1 ? 'item' : 'items'} from your cart? This cannot be undone.
+                                    </p>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="h-[0.5px] bg-[#c6c6c8]" />
+
+                                {/* Clear Button - Destructive */}
+                                <button
+                                    onClick={confirmClearAll}
+                                    className="w-full py-4 text-[17px] font-semibold text-[#ff3b30] active:bg-[#f2f2f7] transition-colors"
+                                >
+                                    Clear All Items
+                                </button>
+                            </div>
+
+                            {/* Cancel Button - Separate Card */}
+                            <button
+                                onClick={() => setShowClearConfirm(false)}
+                                className="w-full py-4 bg-white rounded-2xl text-[17px] font-bold text-[#0071e3] active:bg-[#f2f2f7] transition-colors shadow-lg"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Main Content Area */}
                 <div className="flex-1 overflow-auto pb-52">
                     {/* Search/Manual Input Section - Fixed padding for no overlap */}
@@ -520,20 +634,15 @@ export default function CheckoutPage() {
                         <form onSubmit={handleScan} className="relative">
                             <div className="flex gap-3">
                                 <div className="flex-1 relative group">
-                                    {/* Search Icon - positioned with proper spacing */}
-                                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8e8e93] pointer-events-none">
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                                        </svg>
-                                    </div>
-                                    {/* Search Input with proper padding */}
+                                    {/* Search Input - Clean text-only version */}
                                     <input
                                         placeholder="Search..."
                                         value={scanInput}
                                         onChange={(e) => handleInputChange(e.target.value)}
                                         onFocus={() => scanInput && setShowSuggestions(suggestions.length > 0)}
                                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                        className="w-full h-[52px] pl-12 pr-4 bg-[#f2f2f7] border-0 rounded-2xl text-[17px] text-[#1d1d1f] placeholder:text-[#8e8e93] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/50 focus:bg-white transition-all shadow-sm"
+                                        style={{ paddingLeft: '24px' }}
+                                        className="w-full h-[52px] pr-4 bg-[#f2f2f7] border-0 rounded-2xl text-[17px] text-[#1d1d1f] placeholder:text-[#8e8e93] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/50 focus:bg-white transition-all shadow-sm"
                                     />
                                 </div>
                                 {/* Scan Button - Always visible, premium style */}
@@ -589,7 +698,7 @@ export default function CheckoutPage() {
                             </h2>
                             {cart.length > 0 && (
                                 <button
-                                    onClick={() => setCart([])}
+                                    onClick={handleClearAll}
                                     className="text-[15px] text-[#ff3b30] font-semibold active:opacity-50 transition-opacity"
                                 >
                                     Clear All

@@ -221,19 +221,16 @@ export default function InventoryPage() {
             </div>
 
             {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {filteredItems.map((item) => (
                         <Link key={item.id} href={`/inventory/${item.id}`}>
-                            <div className="group card-apple p-5 cursor-pointer">
-                                {/* Top Row: Name + Status */}
-                                <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="group bg-white rounded-xl p-4 border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer">
+                                {/* Header: Name + Status */}
+                                <div className="flex items-start justify-between gap-2 mb-2">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="text-[15px] font-semibold text-gray-900 leading-snug truncate group-hover:text-[#0071e3] transition-colors">
+                                        <h3 className="text-[14px] font-semibold text-gray-900 truncate group-hover:text-primary transition-colors">
                                             {item.name}
                                         </h3>
-                                        <p className="text-[13px] text-gray-500 mt-0.5 truncate">
-                                            {item.category}
-                                        </p>
                                     </div>
                                     <Badge
                                         variant={getStatusVariant(item.status)}
@@ -243,49 +240,25 @@ export default function InventoryPage() {
                                     </Badge>
                                 </div>
 
-                                {/* Info Grid */}
-                                <div className="space-y-2.5 pt-3 border-t border-gray-100">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[12px] text-gray-400">Equipment ID</span>
-                                        <span className="text-[12px] font-mono text-gray-600 bg-gray-50 px-2 py-0.5 rounded">
-                                            {item.barcode}
+                                {/* Category + ID Row */}
+                                <div className="flex items-center justify-between text-[11px] text-gray-500">
+                                    <span>{item.category}</span>
+                                    <span className="font-mono text-gray-400">{item.barcode}</span>
+                                </div>
+
+                                {/* Assigned To - Only when checked out */}
+                                {item.status !== 'AVAILABLE' && item.assignedTo && (
+                                    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-50">
+                                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
+                                            <span className="text-[8px] font-bold text-white">
+                                                {getUserName(item.assignedTo)?.charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] text-gray-600 truncate">
+                                            {getUserName(item.assignedTo)}
                                         </span>
                                     </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[12px] text-gray-400">Assigned to</span>
-                                        {item.assignedTo ? (
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#0071e3] to-[#00c7be] flex items-center justify-center">
-                                                    <span className="text-[9px] font-bold text-white">
-                                                        {getUserName(item.assignedTo)?.charAt(0).toUpperCase()}
-                                                    </span>
-                                                </div>
-                                                <span className="text-[12px] text-gray-700 font-medium truncate max-w-[80px]">
-                                                    {getUserName(item.assignedTo)}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-[12px] text-gray-400">—</span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Action Row */}
-                                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                                    <button
-                                        onClick={(e) => handlePrintQR(e, item)}
-                                        className="text-[12px] text-[#0071e3] font-medium flex items-center gap-1 hover:underline"
-                                    >
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                        </svg>
-                                        Print QR
-                                    </button>
-                                    <svg className="w-4 h-4 text-gray-300 group-hover:text-[#0071e3] group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </div>
+                                )}
                             </div>
                         </Link>
                     ))}

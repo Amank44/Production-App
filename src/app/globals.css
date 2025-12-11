@@ -226,7 +226,6 @@ textarea {
   border-bottom: 1px solid var(--border) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  padding-left: 0 !important;
   transition: border-color 0.3s ease;
 }
 
