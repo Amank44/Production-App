@@ -49,10 +49,10 @@ const CATEGORY_PREFIXES: Record<string, string> = {
 
 interface BulkRow {
     id: string;
-    name: string;
     category: string;
-    modelCode: string;
-    quantity: number;
+    company: string;
+    model: string;
+    serialNumber: string;
     location: string;
 }
 
@@ -61,11 +61,11 @@ export default function BulkAddPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [existingItems, setExistingItems] = useState<Equipment[]>([]);
-    const [defaultLocation, setDefaultLocation] = useState('Storage Room');
+    const [defaultLocation, setDefaultLocation] = useState('Suryakund Office');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [rows, setRows] = useState<BulkRow[]>([
-        { id: uuid(), name: '', category: 'Camera', modelCode: '', quantity: 1, location: 'Storage Room' }
+        { id: uuid(), category: 'Camera', company: '', model: '', serialNumber: '', location: 'Suryakund Office' }
     ]);
 
     useEffect(() => {
@@ -85,10 +85,10 @@ export default function BulkAddPage() {
     const addRow = () => {
         setRows([...rows, {
             id: uuid(),
-            name: '',
             category: 'Camera',
-            modelCode: '',
-            quantity: 1,
+            company: '',
+            model: '',
+            serialNumber: '',
             location: defaultLocation
         }]);
     };
@@ -102,52 +102,58 @@ export default function BulkAddPage() {
     const updateRow = (id: string, updates: Partial<BulkRow>) => {
         setRows(rows.map(row => {
             if (row.id === id) {
-                const updated = { ...row, ...updates };
-                if (updates.name !== undefined) {
-                    const currentGuess = guessModelCode(row.name);
-                    if (!row.modelCode || row.modelCode === currentGuess) {
-                        updated.modelCode = guessModelCode(updates.name);
-                    }
-                }
-                return updated;
+                return { ...row, ...updates };
             }
             return row;
         }));
     };
 
-    const getPreviewIDs = (row: BulkRow, rowIndex: number) => {
-        if (!row.modelCode) return [];
+    // Normalize model string for barcode (remove spaces, special chars)
+    const normalizeModel = (model: string): string => {
+        return model.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    };
+
+    const getPreviewBarcode = (row: BulkRow, rowIndex: number) => {
+        if (!row.model) return null;
         const prefix = CATEGORY_PREFIXES[row.category] || row.category.substring(0, 3).toUpperCase() || 'ITEM';
-        const baseBarcode = `${prefix}${row.modelCode}`;
+        const normalizedModel = normalizeModel(row.model);
+        const baseBarcode = `${prefix}-${normalizedModel}`;
+
+        // Count existing items with this base barcode
         const existingCount = existingItems.filter(i =>
-            i.barcode.startsWith(baseBarcode) && i.barcode.length > baseBarcode.length
+            i.barcode.startsWith(baseBarcode + '-')
         ).length;
 
+        // Count pending items with same base barcode before this row
         let pendingCount = 0;
         for (let i = 0; i < rowIndex; i++) {
             const prevRow = rows[i];
             const prevPrefix = CATEGORY_PREFIXES[prevRow.category] || prevRow.category.substring(0, 3).toUpperCase() || 'ITEM';
-            const prevBase = `${prevPrefix}${prevRow.modelCode}`;
-            if (prevBase === baseBarcode) pendingCount += prevRow.quantity;
+            const prevNormalizedModel = normalizeModel(prevRow.model);
+            const prevBase = `${prevPrefix}-${prevNormalizedModel}`;
+            if (prevBase === baseBarcode) pendingCount++;
         }
 
-        const startSuffixIndex = existingCount + pendingCount;
-        if (row.quantity === 1) return [`${baseBarcode}${getSuffix(startSuffixIndex)}`];
-        const start = `${baseBarcode}${getSuffix(startSuffixIndex)}`;
-        const end = `${baseBarcode}${getSuffix(startSuffixIndex + row.quantity - 1)}`;
-        return [`${start} ... ${end}`];
+        const sequenceNumber = existingCount + pendingCount + 1;
+        return `${baseBarcode}-${sequenceNumber}`;
+    };
+
+    const getPreviewName = (row: BulkRow) => {
+        if (!row.company && !row.model) return null;
+        return `${row.company} ${row.model}`.trim();
     };
 
     const handleDownloadTemplate = () => {
-        const headers = ['Item Name', 'Category', 'Model Code (Optional)', 'Quantity', 'Location'];
-        const rows = [
-            ['Sony A7S III', 'Camera', 'A7S3', '2', 'Shelf A'],
-            ['Canon 24-70mm', 'Lens', '2470', '1', 'Shelf B']
+        const headers = ['MATERIAL CATEGORY', 'COMPANY', 'MODEL', 'SERIAL NUMBER', 'Location'];
+        const sampleRows = [
+            ['CAMERA', 'SONY', 'A7S3', '5777780', 'Suryakund Office'],
+            ['LENS', 'SONY G MASTER', '24 - 70', '2061797', 'Suryakund Office'],
+            ['TRIPOD', 'SACHTLER', 'ACE', 'S2150M17049920', 'Suryakund Office']
         ];
 
         const csvContent = [
             headers.join(','),
-            ...rows.map(r => r.join(','))
+            ...sampleRows.map(r => r.join(','))
         ].join('\n');
 
         // Use helper with CSV text
@@ -164,8 +170,9 @@ export default function BulkAddPage() {
             const lines = text.split(/\r\n|\n/);
             const newRows: BulkRow[] = [];
 
-            // Heuristic to skip header: check if ANY cell in first row matches known headers
-            const startIdx = lines[0].toLowerCase().includes('name') || lines[0].toLowerCase().includes('category') ? 1 : 0;
+            // Heuristic to skip header: check if first row matches known headers
+            const firstLine = lines[0]?.toLowerCase() || '';
+            const startIdx = firstLine.includes('category') || firstLine.includes('material') || firstLine.includes('company') ? 1 : 0;
 
             for (let i = startIdx; i < lines.length; i++) {
                 const line = lines[i].trim();
@@ -173,24 +180,25 @@ export default function BulkAddPage() {
 
                 // Allow comma separation (simple split)
                 const cols = line.split(',');
-                if (cols.length < 2) continue; // Skip invalid rows
+                if (cols.length < 4) continue; // Skip invalid rows (need at least category, company, model, serial)
 
-                const name = cols[0]?.trim() || '';
-                const category = cols[1]?.trim() || 'Camera';
-                const modelCodeRaw = cols[2]?.trim();
-                const quantity = parseInt(cols[3]?.trim()) || 1;
+                // New format: MATERIAL CATEGORY, COMPANY, MODEL, SERIAL NUMBER, Location
+                const category = cols[0]?.trim() || 'Camera';
+                const company = cols[1]?.trim() || '';
+                const model = cols[2]?.trim() || '';
+                const serialNumber = cols[3]?.trim() || '';
                 const loc = cols[4]?.trim() || defaultLocation;
 
-                // Smart logic
-                const modelCode = modelCodeRaw || guessModelCode(name);
+                // Normalize category (capitalize first letter only)
+                const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 
-                if (name) {
+                if (serialNumber) {
                     newRows.push({
                         id: uuid(),
-                        name,
-                        category,
-                        modelCode: modelCode.toUpperCase(),
-                        quantity,
+                        category: normalizedCategory,
+                        company,
+                        model,
+                        serialNumber,
                         location: loc
                     });
                 }
@@ -198,12 +206,13 @@ export default function BulkAddPage() {
 
             if (newRows.length > 0) {
                 let currentRows = [...rows];
-                if (currentRows.length === 1 && !currentRows[0].name) {
+                // If only one empty row exists, replace it
+                if (currentRows.length === 1 && !currentRows[0].serialNumber) {
                     currentRows = [];
                 }
                 setRows([...currentRows, ...newRows]);
             } else {
-                alert('No valid rows found in CSV');
+                alert('No valid rows found in CSV. Make sure each row has: Category, Company, Model, Serial Number, Location');
             }
         };
         reader.readAsText(file);
@@ -216,39 +225,49 @@ export default function BulkAddPage() {
             const newEquipment: Equipment[] = [];
             const baseCounts = new Map<string, number>();
 
+            // Pre-calculate existing counts for each base barcode
             for (const row of rows) {
-                if (!row.name || !row.modelCode) continue;
+                if (!row.model || !row.company) continue;
 
                 const prefix = CATEGORY_PREFIXES[row.category] || row.category.substring(0, 3).toUpperCase() || 'ITEM';
-                const baseBarcode = `${prefix}${row.modelCode}`;
+                const normalizedModel = normalizeModel(row.model);
+                const baseBarcode = `${prefix}-${normalizedModel}`;
 
                 if (!baseCounts.has(baseBarcode)) {
-                    const count = existingItems.filter(i => i.barcode.startsWith(baseBarcode)).length;
+                    const count = existingItems.filter(i => i.barcode.startsWith(baseBarcode + '-')).length;
                     baseCounts.set(baseBarcode, count);
                 }
+            }
 
-                let currentCount = baseCounts.get(baseBarcode) || 0;
+            for (const row of rows) {
+                if (!row.model || !row.company) continue;
 
-                for (let q = 0; q < row.quantity; q++) {
-                    const barcode = `${baseBarcode}${getSuffix(currentCount)}`;
-                    newEquipment.push({
-                        id: uuid(),
-                        name: row.name,
-                        category: row.category,
-                        barcode: barcode,
-                        status: 'AVAILABLE',
-                        location: row.location || 'Storage',
-                        condition: 'OK',
-                        assignedTo: undefined,
-                        lastActivity: new Date().toISOString(),
-                    });
-                    currentCount++;
-                }
+                const prefix = CATEGORY_PREFIXES[row.category] || row.category.substring(0, 3).toUpperCase() || 'ITEM';
+                const normalizedModel = normalizeModel(row.model);
+                const baseBarcode = `${prefix}-${normalizedModel}`;
+
+                const currentCount = (baseCounts.get(baseBarcode) || 0) + 1;
                 baseCounts.set(baseBarcode, currentCount);
+
+                const barcode = `${baseBarcode}-${currentCount}`;
+                const name = `${row.company} ${row.model}`.trim();
+
+                newEquipment.push({
+                    id: uuid(),
+                    name: name,
+                    category: row.category,
+                    barcode: barcode,
+                    status: 'AVAILABLE',
+                    location: row.location || 'Storage',
+                    condition: 'OK',
+                    serialNumber: row.serialNumber || undefined,
+                    assignedTo: undefined,
+                    lastActivity: new Date().toISOString(),
+                });
             }
 
             if (newEquipment.length === 0) {
-                alert('Please add at least one valid item');
+                alert('Please add at least one valid item with company and model');
                 setSaving(false);
                 return;
             }
@@ -322,12 +341,12 @@ export default function BulkAddPage() {
                         <thead>
                             <tr className="border-b border-border/50 text-left">
                                 <th className="py-3 px-2 font-medium text-muted-foreground w-8">#</th>
-                                <th className="py-3 px-2 font-medium text-muted-foreground min-w-[200px]">Item Name</th>
-                                <th className="py-3 px-2 font-medium text-muted-foreground w-[150px]">Category</th>
-                                <th className="py-3 px-2 font-medium text-muted-foreground w-[120px]">Model Code</th>
-                                <th className="py-3 px-2 font-medium text-muted-foreground w-[80px]">Qty</th>
+                                <th className="py-3 px-2 font-medium text-muted-foreground w-[130px]">Category</th>
+                                <th className="py-3 px-2 font-medium text-muted-foreground min-w-[150px]">Company</th>
+                                <th className="py-3 px-2 font-medium text-muted-foreground w-[120px]">Model</th>
+                                <th className="py-3 px-2 font-medium text-muted-foreground min-w-[140px]">Serial Number</th>
                                 <th className="py-3 px-2 font-medium text-muted-foreground w-[150px]">Location</th>
-                                <th className="py-3 px-2 font-medium text-muted-foreground min-w-[150px]">ID Preview</th>
+                                <th className="py-3 px-2 font-medium text-muted-foreground min-w-[180px]">Preview</th>
                                 <th className="py-3 px-2 font-medium text-muted-foreground w-[50px]"></th>
                             </tr>
                         </thead>
@@ -337,35 +356,35 @@ export default function BulkAddPage() {
                                     <td className="py-2 px-2 text-muted-foreground text-xs">{index + 1}</td>
                                     <td className="py-2 px-2">
                                         <input
-                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none"
-                                            value={row.name}
-                                            onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                                            placeholder="Item Name"
-                                        />
-                                    </td>
-                                    <td className="py-2 px-2">
-                                        <input
                                             list="categories"
                                             className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none"
                                             value={row.category}
                                             onChange={(e) => updateRow(row.id, { category: e.target.value })}
+                                            placeholder="Camera"
                                         />
                                     </td>
                                     <td className="py-2 px-2">
                                         <input
-                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none font-mono uppercase text-xs"
-                                            value={row.modelCode}
-                                            onChange={(e) => updateRow(row.id, { modelCode: e.target.value.toUpperCase() })}
-                                            placeholder="CODE"
+                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none"
+                                            value={row.company}
+                                            onChange={(e) => updateRow(row.id, { company: e.target.value })}
+                                            placeholder="SONY"
                                         />
                                     </td>
                                     <td className="py-2 px-2">
                                         <input
-                                            type="number"
-                                            min="1"
-                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none text-center"
-                                            value={row.quantity}
-                                            onChange={(e) => updateRow(row.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none"
+                                            value={row.model}
+                                            onChange={(e) => updateRow(row.id, { model: e.target.value })}
+                                            placeholder="A7S3"
+                                        />
+                                    </td>
+                                    <td className="py-2 px-2">
+                                        <input
+                                            className="w-full bg-background border border-border rounded px-2 py-1.5 outline-none font-mono text-xs"
+                                            value={row.serialNumber}
+                                            onChange={(e) => updateRow(row.id, { serialNumber: e.target.value })}
+                                            placeholder="5777780"
                                         />
                                     </td>
                                     <td className="py-2 px-2">
@@ -377,11 +396,14 @@ export default function BulkAddPage() {
                                     </td>
                                     <td className="py-2 px-2">
                                         <div className="flex flex-col gap-1">
-                                            {getPreviewIDs(row, index).map(id => (
-                                                <span key={id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary font-mono border border-primary/20 whitespace-nowrap">
-                                                    {id}
+                                            {getPreviewName(row) && (
+                                                <span className="text-xs text-foreground">{getPreviewName(row)}</span>
+                                            )}
+                                            {getPreviewBarcode(row, index) && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary font-mono border border-primary/20 whitespace-nowrap">
+                                                    {getPreviewBarcode(row, index)}
                                                 </span>
-                                            ))}
+                                            )}
                                         </div>
                                     </td>
                                     <td className="py-2 px-2 text-right">
@@ -407,16 +429,6 @@ export default function BulkAddPage() {
                             </div>
 
                             <div className="space-y-3">
-                                <div>
-                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Item Name</label>
-                                    <input
-                                        className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
-                                        value={row.name}
-                                        onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                                        placeholder="E.g. Sony A7S III"
-                                    />
-                                </div>
-
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
@@ -425,49 +437,62 @@ export default function BulkAddPage() {
                                             className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
                                             value={row.category}
                                             onChange={(e) => updateRow(row.id, { category: e.target.value })}
+                                            placeholder="Camera"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Model Code</label>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Company</label>
                                         <input
-                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none font-mono uppercase text-xs"
-                                            value={row.modelCode}
-                                            onChange={(e) => updateRow(row.id, { modelCode: e.target.value.toUpperCase() })}
-                                            placeholder="CODE"
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                            value={row.company}
+                                            onChange={(e) => updateRow(row.id, { company: e.target.value })}
+                                            placeholder="SONY"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Quantity</label>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Model</label>
                                         <input
-                                            type="number"
-                                            min="1"
                                             className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
-                                            value={row.quantity}
-                                            onChange={(e) => updateRow(row.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                            value={row.model}
+                                            onChange={(e) => updateRow(row.id, { model: e.target.value })}
+                                            placeholder="A7S3"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Serial Number</label>
                                         <input
-                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
-                                            value={row.location}
-                                            onChange={(e) => updateRow(row.id, { location: e.target.value })}
+                                            className="w-full bg-background border border-border rounded px-3 py-2 outline-none font-mono text-xs"
+                                            value={row.serialNumber}
+                                            onChange={(e) => updateRow(row.id, { serialNumber: e.target.value })}
+                                            placeholder="5777780"
                                         />
                                     </div>
                                 </div>
 
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+                                    <input
+                                        className="w-full bg-background border border-border rounded px-3 py-2 outline-none text-sm"
+                                        value={row.location}
+                                        onChange={(e) => updateRow(row.id, { location: e.target.value })}
+                                    />
+                                </div>
+
                                 <div className="bg-secondary/20 rounded p-2">
-                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">ID Preview</label>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Preview</label>
                                     <div className="flex flex-wrap gap-1">
-                                        {getPreviewIDs(row, index).map(id => (
-                                            <span key={id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary font-mono border border-primary/20 whitespace-nowrap">
-                                                {id}
+                                        {getPreviewName(row) && (
+                                            <span className="text-xs text-foreground">{getPreviewName(row)}</span>
+                                        )}
+                                        {getPreviewBarcode(row, index) && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary font-mono border border-primary/20 whitespace-nowrap">
+                                                {getPreviewBarcode(row, index)}
                                             </span>
-                                        ))}
-                                        {(!row.modelCode) && <span className="text-xs text-muted-foreground italic">Enter model code...</span>}
+                                        )}
+                                        {(!row.model) && <span className="text-xs text-muted-foreground italic">Enter model...</span>}
                                     </div>
                                 </div>
                             </div>
@@ -479,9 +504,9 @@ export default function BulkAddPage() {
                     <Button variant="secondary" onClick={addRow} size="sm" className="w-full sm:w-auto">Add Row</Button>
                     <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
                         <div className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
-                            Total: <span className="font-medium text-foreground">{rows.reduce((acc, r) => acc + r.quantity, 0)}</span>
+                            Total: <span className="font-medium text-foreground">{rows.length}</span> items
                         </div>
-                        <Button onClick={handleSave} disabled={saving || rows.some(r => !r.name || !r.modelCode)} size="sm" className="flex-1 sm:flex-none">
+                        <Button onClick={handleSave} disabled={saving || rows.some(r => !r.serialNumber || !r.company)} size="sm" className="flex-1 sm:flex-none">
                             {saving ? 'Saving...' : 'Import All'}
                         </Button>
                     </div>

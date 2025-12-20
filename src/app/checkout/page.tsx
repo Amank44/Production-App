@@ -7,7 +7,8 @@ import { Equipment, Transaction, User } from '@/types';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Card } from '@/components/Card';
-import { Select } from '@/components/Select';
+
+import { MultiSelect } from '@/components/MultiSelect';
 import { QRScanner, MobileScanner } from '@/components/QRScanner';
 import { useAuth } from '@/lib/auth';
 
@@ -27,7 +28,7 @@ export default function CheckoutPage() {
 
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [users, setUsers] = useState<User[]>([]);
-    const [selectedUserId, setSelectedUserId] = useState<string>('');
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
     // Redirect if not authorized
     useEffect(() => {
@@ -50,10 +51,32 @@ export default function CheckoutPage() {
         fetchData();
     }, [user]);
 
-    // Set default selected user
+    // Initialize/Load State (Session Persistence)
     useEffect(() => {
-        if (user) {
-            setSelectedUserId(user.id);
+        // Load Cart
+        const savedCart = sessionStorage.getItem('checkout-cart');
+        if (savedCart) {
+            try { setCart(JSON.parse(savedCart)); } catch { sessionStorage.removeItem('checkout-cart'); }
+        }
+
+        // Load Project
+        const savedProject = sessionStorage.getItem('checkout-project');
+        if (savedProject) setProject(savedProject);
+
+        // Load Selected Users
+        const savedUsers = sessionStorage.getItem('checkout-users');
+        if (savedUsers) {
+            try { setSelectedUserIds(JSON.parse(savedUsers)); } catch { }
+        } else if (user) {
+            // Default to current user if nothing saved
+            setSelectedUserIds([user.id]);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        // Set default user if empty and user is loaded (and not loaded from session)
+        if (user && selectedUserIds.length === 0 && !sessionStorage.getItem('checkout-users')) {
+            setSelectedUserIds([user.id]);
         }
     }, [user]);
 
@@ -68,28 +91,19 @@ export default function CheckoutPage() {
         }
     }, [error, successMessage]);
 
-    // Load cart from sessionStorage on mount
+    // Save state to session storage
     useEffect(() => {
-        const savedCart = sessionStorage.getItem('checkout-cart');
-        if (savedCart) {
-            try {
-                const parsedCart = JSON.parse(savedCart);
-                setCart(parsedCart);
-            } catch {
-                // Invalid data, clear it
-                sessionStorage.removeItem('checkout-cart');
-            }
-        }
-    }, []);
-
-    // Save cart to sessionStorage whenever it changes
-    useEffect(() => {
-        if (cart.length > 0) {
-            sessionStorage.setItem('checkout-cart', JSON.stringify(cart));
-        } else {
-            sessionStorage.removeItem('checkout-cart');
-        }
+        if (cart.length > 0) sessionStorage.setItem('checkout-cart', JSON.stringify(cart));
+        else sessionStorage.removeItem('checkout-cart');
     }, [cart]);
+
+    useEffect(() => {
+        sessionStorage.setItem('checkout-project', project);
+    }, [project]);
+
+    useEffect(() => {
+        if (selectedUserIds.length > 0) sessionStorage.setItem('checkout-users', JSON.stringify(selectedUserIds));
+    }, [selectedUserIds]);
 
     // Handle back button behavior for scanner and modals
     useEffect(() => {
@@ -295,14 +309,29 @@ export default function CheckoutPage() {
         if (!user) return;
         if (cart.length === 0) return;
 
+        // Validation
+        if (!project.trim()) {
+            setError('Project Name is required');
+            playErrorSound();
+            return;
+        }
+        if (selectedUserIds.length === 0) {
+            setError('At least one user must be selected');
+            playErrorSound();
+            return;
+        }
+
         setIsLoading(true);
         try {
             const transaction: Transaction = {
                 id: crypto.randomUUID(),
-                userId: selectedUserId,
+                // Use first selected user as primary
+                userId: selectedUserIds[0],
+                // Store others as additional
+                additionalUsers: selectedUserIds.slice(1),
                 items: cart.map(i => i.id),
                 timestampOut: new Date().toISOString(),
-                project: project || 'Unspecified Project',
+                project: project.trim(),
                 preCheckoutConditions: cart.reduce((acc, item) => ({
                     ...acc,
                     [item.id]: item.condition
@@ -311,19 +340,24 @@ export default function CheckoutPage() {
             };
 
             // Save transaction
-            storage.saveTransaction(transaction);
+            await storage.saveTransaction(transaction);
 
             // Update item status
-            cart.forEach(item => {
+            // Use Promise.all for parallel updates
+            await Promise.all(cart.map(item =>
                 storage.updateEquipment(item.id, {
                     status: 'CHECKED_OUT',
-                    assignedTo: selectedUserId,
+                    assignedTo: selectedUserIds[0], // Assign to primary user
                     lastActivity: new Date().toISOString()
-                });
-            });
+                })
+            ));
 
-            // Clear cart and redirect
+            // Clear cart and persistence
             setCart([]);
+            sessionStorage.removeItem('checkout-cart');
+            sessionStorage.removeItem('checkout-project');
+            sessionStorage.removeItem('checkout-users');
+
             router.push('/returns');
         } catch (err) {
             console.error(err);
@@ -484,10 +518,10 @@ export default function CheckoutPage() {
 
                             <div className="space-y-4">
                                 {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
-                                    <Select
-                                        label="Checkout For"
-                                        value={selectedUserId}
-                                        onChange={setSelectedUserId}
+                                    <MultiSelect
+                                        label="Checkout For (Select Multiple)"
+                                        value={selectedUserIds}
+                                        onChange={setSelectedUserIds}
                                         options={users.map(u => ({
                                             value: u.id,
                                             label: `${u.name} (${u.role})`
@@ -497,7 +531,7 @@ export default function CheckoutPage() {
 
                                 <div className="space-y-2">
                                     <label className="text-[13px] font-medium text-[#86868b]">
-                                        Project / Shoot Name
+                                        Project / Shoot Name <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -564,6 +598,37 @@ export default function CheckoutPage() {
                         )}
                     </div>
                 )}
+
+                {/* Project Details Section - Moved to Top */}
+                <div className="px-5 pt-4 pb-2 animate-in slide-in-from-top-4 duration-300">
+                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl overflow-hidden shadow-sm border border-[#e5e5ea]/50">
+                        {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
+                            <div className="px-4 py-4 border-b border-[#e5e5ea]/50">
+                                <MultiSelect
+                                    label="Checkout For"
+                                    value={selectedUserIds}
+                                    onChange={setSelectedUserIds}
+                                    options={users.map(u => ({
+                                        value: u.id,
+                                        label: `${u.name} (${u.role})`
+                                    }))}
+                                />
+                            </div>
+                        )}
+                        <div className="px-4 py-4">
+                            <label className="text-[13px] font-semibold text-[#86868b] mb-2 block">
+                                Project / Shoot Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Documentary Shoot A"
+                                value={project}
+                                onChange={(e) => setProject(e.target.value)}
+                                className="w-full h-11 px-4 bg-[#f2f2f7] border-0 rounded-xl text-[15px] text-[#1d1d1f] placeholder:text-[#8e8e93] focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
 
                 {/* Scanner Section - Immersive with MobileScanner (auto-starts camera) */}
                 {showScanner && (
@@ -757,37 +822,7 @@ export default function CheckoutPage() {
                         )}
                     </div>
 
-                    {/* Project Input Section - Premium styling */}
-                    <div className="mt-8 px-5">
-                        <p className="text-[13px] font-bold text-[#8e8e93] uppercase tracking-[0.5px] mb-3 px-1">
-                            Project Details
-                        </p>
-                        <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-[#e5e5ea]/30">
-                            {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
-                                <div className="px-4 py-4 border-b border-[#e5e5ea]/50">
-                                    <Select
-                                        label="Checkout For"
-                                        value={selectedUserId}
-                                        onChange={setSelectedUserId}
-                                        options={users.map(u => ({
-                                            value: u.id,
-                                            label: `${u.name} (${u.role})`
-                                        }))}
-                                    />
-                                </div>
-                            )}
-                            <div className="px-4 py-4">
-                                <label className="text-[13px] font-semibold text-[#8e8e93] mb-2 block">Project / Shoot Name</label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Documentary Shoot A"
-                                    value={project}
-                                    onChange={(e) => setProject(e.target.value)}
-                                    className="w-full h-12 px-4 bg-[#f2f2f7] border-0 rounded-xl text-[16px] text-[#1d1d1f] placeholder:text-[#c7c7cc] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/50 focus:bg-white transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* Sticky Bottom Checkout Bar - Premium Glassmorphism */}

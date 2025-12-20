@@ -1,41 +1,47 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-// Lazy initialization to prevent build-time errors when env vars are missing
-let adminClient: any = null;
-
+// Create admin client for admin operations (create user, change password, toggle status)
 const getSupabaseAdmin = () => {
-    if (adminClient) return adminClient;
-
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Missing Supabase Admin environment variables');
+    if (!supabaseUrl) {
+        throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    }
+    if (!supabaseServiceKey) {
+        throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY - make sure it is set in .env.local');
     }
 
-    adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    return adminClient;
+    return createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
 };
 
 export async function GET(request: Request) {
     try {
-        const supabaseAdmin = getSupabaseAdmin();
+        console.log('Fetching users using shared client...');
 
-        const { data: users, error } = await supabaseAdmin
+        // Use shared supabase client instead of admin client for reading
+        const { data: users, error } = await supabase
             .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('id, name, email, role, active')
+            .order('name', { ascending: true });
 
         if (error) {
             console.error('Supabase error fetching users:', error);
-            throw error;
+            return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 500 });
         }
 
-        return NextResponse.json(users);
+        console.log('Successfully fetched users, count:', users?.length || 0);
+        return NextResponse.json(users || []);
     } catch (error: any) {
         console.error('API Route Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
     }
 }
 

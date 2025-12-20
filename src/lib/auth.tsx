@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AuthContextType {
     user: User | null;
@@ -21,6 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
+        let channel: RealtimeChannel | null = null;
+
         const fetchProfile = async (userId: string, email: string) => {
             try {
                 const { data, error } = await supabase
@@ -30,7 +33,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     .single();
 
                 if (data) {
+                    // Check if user is active
+                    if (data.active === false) {
+                        await supabase.auth.signOut();
+                        setUser(null);
+                        alert('Your app is inactive please contact to administrator');
+                        router.push('/login');
+                        setIsLoading(false);
+                        return;
+                    }
+
                     setUser(data as User);
+
+                    // Subscribe to real-time changes
+                    if (channel) supabase.removeChannel(channel);
+
+                    channel = supabase
+                        .channel(`user-status-${userId}`)
+                        .on(
+                            'postgres_changes',
+                            {
+                                event: 'UPDATE',
+                                schema: 'public',
+                                table: 'users',
+                                filter: `id=eq.${userId}`
+                            },
+                            async (payload) => {
+                                const updatedUser = payload.new as User;
+                                if (updatedUser.active === false) {
+                                    await supabase.auth.signOut();
+                                    setUser(null);
+                                    alert('Your app is inactive please contact to administrator');
+                                    router.push('/login');
+                                } else {
+                                    // Update local user state
+                                    setUser(updatedUser);
+                                }
+                            }
+                        )
+                        .subscribe();
+
                 } else if (error && error.code === 'PGRST116') {
                     // User exists in Auth but not in public.users table yet
                     console.warn('User profile not found in public table');
@@ -57,15 +99,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
+                // If we already have a user and IDs match, we might not need to refetch
+                // But to be safe on sign-in, we fetch.
                 fetchProfile(session.user.id, session.user.email!);
             } else {
                 setUser(null);
                 setIsLoading(false);
+                if (channel) {
+                    supabase.removeChannel(channel);
+                    channel = null;
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
-    }, []);
+        return () => {
+            subscription.unsubscribe();
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [router]);
 
     const login = async (email: string, password: string) => {
         setIsLoading(true);

@@ -21,6 +21,8 @@ export default function InventoryPage() {
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'ALL'>('ALL');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortConfig, setSortConfig] = useState<{ key: keyof Equipment | 'assignedToName'; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [isGeneratingQR, setIsGeneratingQR] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -147,6 +149,102 @@ export default function InventoryPage() {
         }
     };
 
+    // Toggle selection for a single item
+    const toggleSelect = (e: React.MouseEvent | React.ChangeEvent, itemId: string) => {
+        e.stopPropagation();
+        setSelectedItems(prev => {
+            const next = new Set(prev);
+            if (next.has(itemId)) {
+                next.delete(itemId);
+            } else {
+                next.add(itemId);
+            }
+            return next;
+        });
+    };
+
+    // Select all / deselect all
+    const toggleSelectAll = () => {
+        if (selectedItems.size === filteredItems.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(filteredItems.map(item => item.id)));
+        }
+    };
+
+    // Bulk download QR codes
+    const handleBulkDownloadQR = async () => {
+        if (selectedItems.size === 0) {
+            alert('Please select at least one item');
+            return;
+        }
+
+        setIsGeneratingQR(true);
+        try {
+            const qrModule = await import('qrcode');
+            const QRCode = qrModule.default || qrModule;
+            const pdfModule = await import('jspdf');
+            const jsPDF = pdfModule.jsPDF || pdfModule.default;
+
+            if (!jsPDF) throw new Error('jsPDF not loaded');
+
+            // A4 size in mm
+            const pdf = new jsPDF({ orientation: 'portrait', format: 'a4', unit: 'mm' });
+            const pageWidth = 210;
+            const pageHeight = 297;
+
+            // QR code layout settings
+            const cols = 4;
+            const rows = 5;
+            const qrSize = 35; // mm
+            const labelHeight = 8; // mm for the barcode text
+            const cellWidth = pageWidth / cols;
+            const cellHeight = (pageHeight - 20) / rows; // 20mm margin top/bottom
+            const marginTop = 10;
+            const marginLeft = (cellWidth - qrSize) / 2;
+
+            const selectedItemsArray = items.filter(item => selectedItems.has(item.id));
+            const itemsPerPage = cols * rows;
+
+            for (let i = 0; i < selectedItemsArray.length; i++) {
+                const item = selectedItemsArray[i];
+                const pageIndex = Math.floor(i / itemsPerPage);
+                const positionOnPage = i % itemsPerPage;
+                const row = Math.floor(positionOnPage / cols);
+                const col = positionOnPage % cols;
+
+                // Add new page if needed
+                if (positionOnPage === 0 && pageIndex > 0) {
+                    pdf.addPage();
+                }
+
+                const x = col * cellWidth + marginLeft;
+                const y = marginTop + row * cellHeight;
+
+                // Generate QR code
+                const qrUrl = await QRCode.toDataURL(item.barcode, { width: 300, margin: 1 });
+
+                // Add QR code image
+                pdf.addImage(qrUrl, 'PNG', x, y, qrSize, qrSize);
+
+                // Add barcode text below QR code
+                pdf.setFontSize(8);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(item.barcode, x + qrSize / 2, y + qrSize + 5, { align: 'center' });
+            }
+
+            downloadFile(pdf.output('blob'), `QR_Codes_${selectedItems.size}_items.pdf`, 'application/pdf');
+
+            // Clear selection after download
+            setSelectedItems(new Set());
+        } catch (err) {
+            console.error('Bulk QR Gen Failed', err);
+            alert('Failed to generate QR codes');
+        } finally {
+            setIsGeneratingQR(false);
+        }
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6 animate-fade-in">
             <div className="flex flex-col gap-3 sm:gap-4">
@@ -220,6 +318,48 @@ export default function InventoryPage() {
                 </div>
             </div>
 
+            {/* Selection controls - show when in list view */}
+            {viewMode === 'list' && (
+                <div className="flex items-center justify-between bg-secondary/30 rounded-lg px-4 py-2 border border-border">
+                    <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                                onChange={toggleSelectAll}
+                                className="w-4 h-4 rounded border-border accent-primary"
+                            />
+                            <span className="text-sm text-muted-foreground">
+                                {selectedItems.size > 0 ? `${selectedItems.size} selected` : 'Select all'}
+                            </span>
+                        </label>
+                    </div>
+                    {selectedItems.size > 0 && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleBulkDownloadQR}
+                            disabled={isGeneratingQR}
+                            className="gap-2"
+                        >
+                            {isGeneratingQR ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                    </svg>
+                                    Download QR Codes ({selectedItems.size})
+                                </>
+                            )}
+                        </Button>
+                    )}
+                </div>
+            )}
+
             {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {filteredItems.map((item) => (
@@ -269,6 +409,14 @@ export default function InventoryPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-muted-foreground uppercase bg-secondary/50 border-b border-border">
                                 <tr>
+                                    <th className="px-4 py-3 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                                            onChange={toggleSelectAll}
+                                            className="w-4 h-4 rounded border-border accent-primary"
+                                        />
+                                    </th>
                                     <th className="px-6 py-3 cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('name')}>
                                         <div className="flex items-center">Name <SortIcon active={sortConfig?.key === 'name'} direction={sortConfig?.direction || 'asc'} /></div>
                                     </th>
@@ -294,8 +442,16 @@ export default function InventoryPage() {
                                     <tr
                                         key={item.id}
                                         onClick={() => router.push(`/inventory/${item.id}`)}
-                                        className="bg-background/50 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                                        className={`border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer ${selectedItems.has(item.id) ? 'bg-primary/5' : 'bg-background/50'}`}
                                     >
+                                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.has(item.id)}
+                                                onChange={(e) => toggleSelect(e, item.id)}
+                                                className="w-4 h-4 rounded border-border accent-primary"
+                                            />
+                                        </td>
                                         <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
                                         <td className="px-6 py-4 text-muted-foreground">{item.category}</td>
                                         <td className="px-6 py-4 font-mono text-muted-foreground">{item.barcode}</td>
@@ -332,3 +488,4 @@ export default function InventoryPage() {
         </div>
     );
 }
+

@@ -32,6 +32,7 @@ export interface Equipment {
     status: EquipmentStatus;
     location: string;
     condition: Condition;
+    serialNumber?: string; // Manufacturer serial number
     metadata?: {
         brand?: string;
         model?: string;
@@ -50,6 +51,8 @@ export interface Transaction {
     project?: string;
     preCheckoutConditions: Record<string, Condition>; // ItemID -> Condition
     status: 'OPEN' | 'CLOSED';
+    additionalUsers?: string[]; // IDs of other users involved
+    notes?: string;
 }
 
 export interface ReturnRecord {

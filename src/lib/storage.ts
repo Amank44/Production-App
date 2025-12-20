@@ -31,6 +31,7 @@ class StorageService {
         // Our SQL uses snake_case for some fields (assigned_to, last_activity), so we map them.
         return data.map((item: any) => ({
             ...item,
+            serialNumber: item.serial_number,
             assignedTo: item.assigned_to,
             lastActivity: item.last_activity
         })) as Equipment[];
@@ -48,6 +49,7 @@ class StorageService {
             status: item.status,
             location: item.location,
             condition: item.condition,
+            serial_number: item.serialNumber,
             assigned_to: item.assignedTo,
             last_activity: item.lastActivity
         }));
@@ -68,6 +70,7 @@ class StorageService {
             status: item.status,
             location: item.location,
             condition: item.condition,
+            serial_number: item.serialNumber,
             assigned_to: item.assignedTo,
             last_activity: item.lastActivity
         };
@@ -82,6 +85,10 @@ class StorageService {
     async updateEquipment(id: string, updates: Partial<Equipment>): Promise<void> {
         // Map updates to snake_case
         const dbUpdates: any = { ...updates };
+        if (updates.serialNumber !== undefined) {
+            dbUpdates.serial_number = updates.serialNumber;
+            delete dbUpdates.serialNumber;
+        }
         if (updates.assignedTo !== undefined) {
             dbUpdates.assigned_to = updates.assignedTo;
             delete dbUpdates.assignedTo;
@@ -115,7 +122,9 @@ class StorageService {
             userId: t.user_id,
             timestampOut: t.timestamp_out,
             preCheckoutConditions: t.pre_checkout_conditions,
-            postReturnConditions: t.post_return_conditions
+            postReturnConditions: t.post_return_conditions,
+            additionalUsers: t.additional_users,
+            notes: t.notes
         })) as Transaction[];
     }
 
@@ -127,7 +136,9 @@ class StorageService {
             timestamp_out: transaction.timestampOut,
             project: transaction.project,
             pre_checkout_conditions: transaction.preCheckoutConditions,
-            status: transaction.status
+            status: transaction.status,
+            additional_users: transaction.additionalUsers,
+            notes: transaction.notes
         };
 
         const { error } = await supabase
