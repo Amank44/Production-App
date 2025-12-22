@@ -26,6 +26,32 @@ export default function CheckoutPage() {
     const [notes, setNotes] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
+
+    // Handle back button closing scanner
+    useEffect(() => {
+        if (showScanner) {
+            // Push a state to history so back button catches it
+            window.history.pushState({ scannerOpen: true }, '', window.location.href);
+
+            const handlePopState = () => {
+                setShowScanner(false);
+            };
+
+            window.addEventListener('popstate', handlePopState);
+
+            return () => {
+                window.removeEventListener('popstate', handlePopState);
+            };
+        }
+    }, [showScanner]);
+
+    const toggleScanner = () => {
+        if (showScanner) {
+            window.history.back(); // This triggers popstate -> closes scanner
+        } else {
+            setShowScanner(true);
+        }
+    };
     const [suggestions, setSuggestions] = useState<Equipment[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -319,7 +345,7 @@ export default function CheckoutPage() {
                                 <Button
                                     variant={showScanner ? 'secondary' : 'outline'}
                                     size="sm"
-                                    onClick={() => setShowScanner(!showScanner)}
+                                    onClick={toggleScanner}
                                 >
                                     {showScanner ? 'Hide Scanner' : 'Use Camera'}
                                 </Button>
@@ -527,7 +553,7 @@ export default function CheckoutPage() {
                                 <MobileScanner
                                     onScan={handleQRScan}
                                     onError={(err) => showToast(err, 'error')}
-                                    onClose={() => setShowScanner(false)}
+                                    onClose={() => window.history.back()}
                                     autoStart={true}
                                 />
                             )}
@@ -545,7 +571,7 @@ export default function CheckoutPage() {
                                 className="flex-1 h-14 px-5 bg-[#f2f2f7] border-0 rounded-2xl text-[16px] focus:bg-white focus:ring-2 focus:ring-[#0071e3] transition-all shadow-sm"
                             />
                             <button
-                                onClick={() => setShowScanner(!showScanner)}
+                                onClick={toggleScanner}
                                 className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 ${showScanner ? 'bg-[#f2f2f7] text-[#1d1d1f]' : 'bg-[#1d1d1f] text-white shadow-[#1d1d1f]/30'}`}
                             >
                                 {showScanner ? (
