@@ -8,9 +8,11 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Card } from '@/components/Card';
 import QRCode from 'qrcode';
+import { useAuth } from '@/lib/auth';
 
 export default function AddItemPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -51,6 +53,18 @@ export default function AddItemPage() {
             };
 
             await storage.addEquipment(newItem);
+
+            // Log creation
+            if (user) {
+                await storage.addLog({
+                    id: crypto.randomUUID(),
+                    action: 'CREATE',
+                    entityId: newItem.id,
+                    userId: user.id,
+                    timestamp: new Date().toISOString(),
+                    details: `Added new equipment: ${newItem.name} (${newItem.barcode})`
+                });
+            }
 
             // Generate QR Code (just to verify it works, in real app we might save it or print it)
             const qrDataUrl = await QRCode.toDataURL(JSON.stringify({ id, barcode }));

@@ -3,24 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { storage } from '@/lib/storage';
-import { Transaction, Equipment, User } from '@/types';
+import { Transaction, Equipment, User, Log } from '@/types';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useAuth } from '@/lib/auth';
 import { Badge } from '@/components/Badge';
 import { QRScanner, MobileScanner } from '@/components/QRScanner';
+import { useToast } from '@/lib/toast-context';
+import { useConfirm } from '@/lib/dialog-context';
 
 export default function TransactionDetailPage() {
     const router = useRouter();
     const params = useParams();
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const transactionId = params.id as string;
 
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [availableEquipment, setAvailableEquipment] = useState<Equipment[]>([]);
     const [transactionUser, setTransactionUser] = useState<User | null>(null);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -39,18 +45,19 @@ export default function TransactionDetailPage() {
         setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
     }, [user, router, transactionId]);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
-            const [txns, equip, users] = await Promise.all([
+            const [txns, equip, users, allLogs] = await Promise.all([
                 storage.getTransactions(),
                 storage.getEquipment(),
                 storage.getUsers(),
+                storage.getLogs(),
             ]);
 
             const txn = txns.find(t => t.id === transactionId);
             if (!txn) {
-                alert('Transaction not found');
+                showToast('Transaction not found', 'error');
                 router.push('/transactions');
                 return;
             }
@@ -58,13 +65,20 @@ export default function TransactionDetailPage() {
             const txnUser = users.find(u => u.id === txn.userId);
             const available = equip.filter(e => e.status === 'AVAILABLE');
 
+            // Filter logs for this transaction
+            const transactionLogs = allLogs
+                .filter(l => l.entityId === transactionId)
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
             setTransaction(txn);
             setEquipment(equip);
             setAvailableEquipment(available);
             setTransactionUser(txnUser || null);
+            setAllUsers(users);
+            setLogs(transactionLogs);
         } catch (error) {
             console.error('Error loading data:', error);
-            alert('Error loading transaction data');
+            showToast('Error loading transaction data', 'error');
         } finally {
             setLoading(false);
         }
@@ -74,14 +88,20 @@ export default function TransactionDetailPage() {
         return equipment.find(e => e.id === itemId);
     };
 
+    const getUserName = (userId?: string) => {
+        if (!userId) return 'System / Guest';
+        const found = allUsers.find(u => u.id === userId);
+        return found ? found.name : 'Unknown User';
+    };
+
     const handleAddItem = async (itemId: string) => {
         if (!transaction || transaction.status !== 'OPEN') {
-            alert('Cannot modify closed transactions');
+            showToast('Cannot modify closed transactions', 'error');
             return;
         }
 
         if (transaction.items.includes(itemId)) {
-            alert('Item already in this transaction');
+            showToast('Item already in this transaction', 'error');
             return;
         }
 
@@ -91,32 +111,30 @@ export default function TransactionDetailPage() {
             return;
         }
 
+        // If item is not available, check if it's assigned to this transaction (should be caught by includes check above)
+        // But if it's assigned to OTHER transaction, block it.
         if (item.status !== 'AVAILABLE') {
-            alert('Item is not available for checkout');
+            showToast(`Item is not available (Current Status: ${item.status})`, 'error');
             return;
         }
 
         setSaving(true);
         try {
             // Update transaction
-            const updatedTransaction: Transaction = {
-                ...transaction,
+            await storage.updateTransaction(transaction.id, {
                 items: [...transaction.items, itemId],
                 preCheckoutConditions: {
                     ...transaction.preCheckoutConditions,
                     [itemId]: item.condition,
                 },
-            };
+            });
 
             // Update item status
-            const updatedItem: Equipment = {
-                ...item,
+            await storage.updateEquipment(itemId, {
                 status: 'CHECKED_OUT',
                 assignedTo: transaction.userId,
-            };
-
-            await storage.updateTransaction(updatedTransaction.id, updatedTransaction);
-            await storage.updateEquipment(updatedItem.id, updatedItem);
+                lastActivity: new Date().toISOString()
+            });
 
             // Log the change
             await storage.addLog({
@@ -125,17 +143,17 @@ export default function TransactionDetailPage() {
                 entityId: transaction.id,
                 userId: user!.id,
                 timestamp: new Date().toISOString(),
-                details: `Added item: ${item.name} (${item.barcode})`,
+                details: `Added item: ${item.name} (${item.barcode}) to transaction "${transaction.project || 'Unspecified'}"`,
             });
 
-            alert(`Successfully added ${item.name} to transaction`);
+            await loadData(true);
             setSearchQuery('');
             setShowAddItem(false);
             setShowQRScanner(false);
-            await loadData();
+            showToast(`Successfully added ${item.name}`, 'success');
         } catch (error) {
             console.error('Error adding item:', error);
-            alert('Error adding item to transaction');
+            showToast('Error adding item to transaction', 'error');
         } finally {
             setSaving(false);
         }
@@ -149,12 +167,18 @@ export default function TransactionDetailPage() {
 
         const item = getItemDetails(itemId);
         if (!item) {
-            alert('Item not found');
+            showToast('Item not found', 'error');
             return;
         }
 
-        const confirmed = confirm(`Remove ${item.name} from this transaction?`);
-        if (!confirmed) return;
+        const isConfirmed = await confirm({
+            title: 'Remove Item?',
+            message: `Are you sure you want to remove ${item.name} from this transaction?`,
+            confirmLabel: 'Remove',
+            variant: 'danger'
+        });
+
+        if (!isConfirmed) return;
 
         setSaving(true);
         try {
@@ -163,21 +187,17 @@ export default function TransactionDetailPage() {
             const updatedConditions = { ...transaction.preCheckoutConditions };
             delete updatedConditions[itemId];
 
-            const updatedTransaction: Transaction = {
-                ...transaction,
+            await storage.updateTransaction(transaction.id, {
                 items: updatedItems,
                 preCheckoutConditions: updatedConditions,
-            };
+            });
 
             // Update item status back to available
-            const updatedItem: Equipment = {
-                ...item,
+            await storage.updateEquipment(itemId, {
                 status: 'AVAILABLE',
-                assignedTo: undefined,
-            };
-
-            await storage.updateTransaction(updatedTransaction.id, updatedTransaction);
-            await storage.updateEquipment(updatedItem.id, updatedItem);
+                assignedTo: null as any,
+                lastActivity: new Date().toISOString()
+            });
 
             // Log the change
             await storage.addLog({
@@ -186,14 +206,14 @@ export default function TransactionDetailPage() {
                 entityId: transaction.id,
                 userId: user!.id,
                 timestamp: new Date().toISOString(),
-                details: `Removed item: ${item.name} (${item.barcode})`,
+                details: `Removed item: ${item.name} (${item.barcode}) from transaction "${transaction.project || 'Unspecified'}"`,
             });
 
-            alert(`Successfully removed ${item.name} from transaction`);
-            await loadData();
+            await loadData(true);
+            showToast(`Successfully removed ${item.name}`, 'success');
         } catch (error) {
             console.error('Error removing item:', error);
-            alert('Error removing item from transaction');
+            showToast('Error removing item from transaction', 'error');
         } finally {
             setSaving(false);
         }
@@ -204,7 +224,7 @@ export default function TransactionDetailPage() {
         if (item) {
             await handleAddItem(item.id);
         } else {
-            alert('Item not found with this barcode');
+            showToast('Item not found with this barcode', 'error');
         }
     };
 
@@ -244,8 +264,15 @@ export default function TransactionDetailPage() {
         );
     }
 
+    // Prepare list of all involved users
+    const primaryUserName = transactionUser?.name || 'Unknown User';
+    const additionalUserNames = (transaction.additionalUsers || [])
+        .map(id => getUserName(id))
+        .filter(name => name !== 'Unknown User');
+    const allMemberNames = [primaryUserName, ...additionalUserNames];
+
     return (
-        <div className="space-y-5 sm:space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in pb-12">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
@@ -262,8 +289,8 @@ export default function TransactionDetailPage() {
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                             {transaction.project || 'Unspecified Project'}
                         </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Transaction ID: {transaction.id.substring(0, 8)}...
+                        <p className="text-sm font-medium text-[#0071e3] mt-1">
+                            {transaction.id}
                         </p>
                     </div>
                 </div>
@@ -272,12 +299,19 @@ export default function TransactionDetailPage() {
                 </Badge>
             </div>
 
-            {/* Transaction Info */}
+            {/* Transaction Info Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Card className="p-4">
                     <p className="text-sm text-muted-foreground mb-1">Checked Out By</p>
-                    <p className="font-semibold">{transactionUser?.name || 'Unknown User'}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{transactionUser?.email}</p>
+                    <div className="space-y-1">
+                        {allMemberNames.map((name, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <span className={`font-semibold ${index === 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                    {name} {index === 0 && '(Primary)'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </Card>
                 <Card className="p-4">
                     <p className="text-sm text-muted-foreground mb-1">Checkout Time</p>
@@ -303,7 +337,7 @@ export default function TransactionDetailPage() {
                             disabled={saving}
                         >
                             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                             </svg>
                             Add Item
                         </Button>
@@ -312,7 +346,7 @@ export default function TransactionDetailPage() {
 
                 {/* Add Item Section */}
                 {showAddItem && transaction.status === 'OPEN' && (
-                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <h3 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">Add Item to Transaction</h3>
 
                         <div className="flex gap-2 mb-3">
@@ -364,7 +398,7 @@ export default function TransactionDetailPage() {
                                         <Button
                                             size="sm"
                                             onClick={() => handleAddItem(item.id)}
-                                            disabled={saving}
+                                            isLoading={saving}
                                         >
                                             Add
                                         </Button>
@@ -415,18 +449,44 @@ export default function TransactionDetailPage() {
                                             variant="danger"
                                             size="sm"
                                             onClick={() => handleRemoveItem(itemId)}
-                                            disabled={saving}
+                                            isLoading={saving}
                                             className="w-full sm:w-auto"
                                         >
-                                            <svg className="w-4 h-4 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                            <span className="hidden sm:inline">Remove</span>
+                                            <span className="sm:inline">Remove</span>
                                         </Button>
                                     )}
                                 </div>
                             );
                         })
+                    )}
+                </div>
+            </Card>
+
+            {/* Activity History Log */}
+            <Card title="Activity History">
+                <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+                    {logs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No activity recorded</p>
+                    ) : (
+                        logs.map(log => (
+                            <div key={log.id} className="flex gap-3 text-sm border-b border-border pb-3 last:border-0 last:pb-0">
+                                <div className="mt-0.5">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        {getUserName(log.userId).charAt(0)}
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-foreground">
+                                        <span className="font-medium">{getUserName(log.userId)}</span>
+                                        <span className="text-muted-foreground mx-1">•</span>
+                                        {log.details || log.action}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {new Date(log.timestamp).toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
                     )}
                 </div>
             </Card>

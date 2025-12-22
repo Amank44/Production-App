@@ -26,9 +26,6 @@ class StorageService {
             return [];
         }
 
-        // Map DB fields to TS interface if needed (snake_case to camelCase is handled if we set it up, 
-        // but for now we assume direct mapping or manual mapping if keys differ)
-        // Our SQL uses snake_case for some fields (assigned_to, last_activity), so we map them.
         return data.map((item: any) => ({
             ...item,
             serialNumber: item.serial_number,
@@ -38,9 +35,6 @@ class StorageService {
     }
 
     async saveEquipment(equipment: Equipment[]): Promise<void> {
-        // This method was used for bulk save in local storage. 
-        // For Supabase, we should probably use upsert or individual updates.
-        // For now, we'll implement it as a bulk upsert.
         const dbItems = equipment.map(item => ({
             id: item.id,
             name: item.name,
@@ -83,16 +77,23 @@ class StorageService {
     }
 
     async updateEquipment(id: string, updates: Partial<Equipment>): Promise<void> {
-        // Map updates to snake_case
+        // Sanitize updates - remove ID and handle camelCase mapping
         const dbUpdates: any = { ...updates };
+        delete dbUpdates.id;
+        delete dbUpdates.barcode;
+        delete dbUpdates.name;
+        delete dbUpdates.category;
+
         if (updates.serialNumber !== undefined) {
             dbUpdates.serial_number = updates.serialNumber;
             delete dbUpdates.serialNumber;
         }
+
         if (updates.assignedTo !== undefined) {
             dbUpdates.assigned_to = updates.assignedTo;
             delete dbUpdates.assignedTo;
         }
+
         if (updates.lastActivity !== undefined) {
             dbUpdates.last_activity = updates.lastActivity;
             delete dbUpdates.lastActivity;
@@ -103,7 +104,10 @@ class StorageService {
             .update(dbUpdates)
             .eq('id', id);
 
-        if (error) console.error('Error updating equipment:', error);
+        if (error) {
+            console.error('Error updating equipment:', error);
+            throw error;
+        }
     }
 
     // Transactions
@@ -150,17 +154,35 @@ class StorageService {
 
     async updateTransaction(id: string, updates: Partial<Transaction>): Promise<void> {
         const dbUpdates: any = { ...updates };
-        // Map keys
-        if (updates.userId) { dbUpdates.user_id = updates.userId; delete dbUpdates.userId; }
-        if (updates.timestampOut) { dbUpdates.timestamp_out = updates.timestampOut; delete dbUpdates.timestampOut; }
-        if (updates.preCheckoutConditions) { dbUpdates.pre_checkout_conditions = updates.preCheckoutConditions; delete dbUpdates.preCheckoutConditions; }
+        delete dbUpdates.id;
+
+        if (updates.userId !== undefined) { dbUpdates.user_id = updates.userId; }
+        delete dbUpdates.userId;
+
+        if (updates.timestampOut !== undefined) { dbUpdates.timestamp_out = updates.timestampOut; }
+        delete dbUpdates.timestampOut;
+
+        if (updates.timestampIn !== undefined) { dbUpdates.timestamp_in = updates.timestampIn; }
+        delete dbUpdates.timestampIn;
+
+        if (updates.preCheckoutConditions !== undefined) { dbUpdates.pre_checkout_conditions = updates.preCheckoutConditions; }
+        delete dbUpdates.preCheckoutConditions;
+
+        if (updates.postReturnConditions !== undefined) { dbUpdates.post_return_conditions = updates.postReturnConditions; }
+        delete dbUpdates.postReturnConditions;
+
+        if (updates.additionalUsers !== undefined) { dbUpdates.additional_users = updates.additionalUsers; }
+        delete dbUpdates.additionalUsers;
 
         const { error } = await supabase
             .from('transactions')
             .update(dbUpdates)
             .eq('id', id);
 
-        if (error) console.error('Error updating transaction:', error);
+        if (error) {
+            console.error('Error updating transaction:', error);
+            throw error;
+        }
     }
 
     // Logs
@@ -177,8 +199,10 @@ class StorageService {
 
         return data.map((l: any) => ({
             ...l,
+            entityId: l.entity_id,
             userId: l.user_id,
-            entityId: l.entity_id || l.entityId // Handle potential naming diffs
+            oldValue: l.old_value,
+            newValue: l.new_value
         })) as Log[];
     }
 
@@ -189,7 +213,9 @@ class StorageService {
             entity_id: log.entityId,
             user_id: log.userId,
             timestamp: log.timestamp,
-            details: log.details
+            details: log.details,
+            old_value: log.oldValue,
+            new_value: log.newValue
         };
 
         const { error } = await supabase
@@ -199,10 +225,10 @@ class StorageService {
         if (error) console.error('Error adding log:', error);
     }
 
-    // Reset
     async resetData(): Promise<void> {
-        // Dangerous in production!
-        console.warn('Reset data called - not implemented for Supabase production safety');
+        await supabase.from('equipment').delete().neq('id', '0');
+        await supabase.from('transactions').delete().neq('id', '0');
+        await supabase.from('logs').delete().neq('id', '0');
     }
 }
 

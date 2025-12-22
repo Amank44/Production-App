@@ -4,12 +4,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AuthContextType {
     user: User | null;
     login: (email: string, password: string) => Promise<{ error: any }>;
-    signUp: (email: string, password: string, name: string, role: string) => Promise<{ error: any }>;
+    signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
     logout: () => Promise<void>;
     isLoading: boolean;
 }
@@ -34,13 +35,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (data) {
                     // Check if user is active
-                    if (data.active === false) {
-                        await supabase.auth.signOut();
+                    if (data.status === 'PENDING' || data.status === 'SUSPENDED') {
+                        const reason = data.status === 'SUSPENDED' ? 'suspended' : 'pending';
                         setUser(null);
-                        alert('Your app is inactive please contact to administrator');
-                        router.push('/login');
                         setIsLoading(false);
+                        router.push(`/inactive?reason=${reason}`);
+                        await supabase.auth.signOut();
                         return;
+                    }
+
+                    // Case: User was on inactive page but just got reactivated
+                    if (window.location.pathname === '/inactive' && data.status === 'ACTIVE') {
+                        router.push('/login');
                     }
 
                     setUser(data as User);
@@ -60,12 +66,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             },
                             async (payload) => {
                                 const updatedUser = payload.new as User;
-                                if (updatedUser.active === false) {
-                                    await supabase.auth.signOut();
+                                if (updatedUser.status === 'PENDING' || updatedUser.status === 'SUSPENDED') {
+                                    const reason = updatedUser.status === 'SUSPENDED' ? 'suspended' : 'pending';
                                     setUser(null);
-                                    alert('Your app is inactive please contact to administrator');
-                                    router.push('/login');
+                                    router.push(`/inactive?reason=${reason}`);
+                                    await supabase.auth.signOut();
                                 } else {
+                                    // Case: User was on inactive page but just got reactivated
+                                    if (window.location.pathname === '/inactive' && updatedUser.status === 'ACTIVE') {
+                                        router.push('/login');
+                                    }
                                     // Update local user state
                                     setUser(updatedUser);
                                 }
@@ -126,14 +136,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (error) {
+            // Log failed login attempt
+            storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'LOGIN_FAILED',
+                entityId: 'AUTH',
+                timestamp: new Date().toISOString(),
+                details: `Failed login attempt for email: ${email}`
+            }).catch(err => console.error('Error logging failed login:', err));
+
             setIsLoading(false);
             return { error };
+        }
+
+        // Fetch profile to check active status BEFORE logging success
+        const { data: profile } = await supabase
+            .from('users')
+            .select('status')
+            .eq('id', data.user?.id)
+            .single();
+
+        // Log login success ONLY if user is active
+        if (data.user && profile?.status === 'ACTIVE') {
+            storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'LOGIN',
+                userId: data.user.id,
+                entityId: 'AUTH',
+                timestamp: new Date().toISOString(),
+                details: `User logged in: ${email}`
+            }).catch(err => console.error('Error logging login:', err));
+        } else if (data.user && (profile?.status === 'PENDING' || profile?.status === 'SUSPENDED')) {
+            // Log a special entry for inactive login attempts
+            storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'LOGIN_FAILED',
+                userId: data.user.id,
+                entityId: 'AUTH',
+                timestamp: new Date().toISOString(),
+                details: `Login attempt by inactive user: ${email}`
+            }).catch(err => console.error('Error logging inactive user login:', err));
         }
 
         return { error: null };
     };
 
-    const signUp = async (email: string, password: string, name: string, role: string) => {
+    const signUp = async (email: string, password: string, name: string) => {
         setIsLoading(true);
         // 1. Sign up in Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -143,7 +191,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (authError) {
             setIsLoading(false);
-            return { error: authError };
+            const message = authError.message === 'User already registered'
+                ? 'An account with this email already exists. Try logging in.'
+                : authError.message;
+            return { error: new Error(message) };
         }
 
         if (authData.user) {
@@ -155,22 +206,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         id: authData.user.id,
                         email: email,
                         name: name,
-                        role: role,
-                        active: true
+                        role: 'CREW',
+                        status: 'PENDING'
                     }
                 ]);
 
             if (profileError) {
-                console.error('Error creating user profile:', profileError);
-                return { error: profileError };
+                // Handle duplicate key error (User already has a profile)
+                if (profileError.code === '23505') {
+                    // Do not log to console.error to avoid scary red box in dev mode
+                    console.log(`[SignUp] Duplicate account attempt for ${email}`);
+                    return { error: new Error('An account with this email already exists. Please try logging in instead.') };
+                }
+
+                // Log detailed error for other cases
+                console.error(`[SignUp] Profile creation failed for ${email}:`,
+                    profileError.message,
+                    profileError.code,
+                    profileError.details
+                );
+
+                // Attempt to sign out since they were technically signed up but profile creation failed
+                await supabase.auth.signOut();
+                return { error: new Error(`Account setup failed: ${profileError.message}. Please contact an admin.`) };
             }
+
+            // Log signup success
+            storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'SIGNUP',
+                userId: authData.user.id,
+                entityId: 'AUTH',
+                timestamp: new Date().toISOString(),
+                details: `New account request: ${name} (${email}) - Pending Approval`
+            }).catch(err => console.error('Error logging signup:', err));
         }
 
         return { error: null };
     };
 
     const logout = async () => {
+        const currentUser = user;
         await supabase.auth.signOut();
+
+        // Log logout
+        if (currentUser) {
+            storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'LOGOUT',
+                userId: currentUser.id,
+                entityId: 'AUTH',
+                timestamp: new Date().toISOString(),
+                details: `User logged out: ${currentUser.email}`
+            }).catch(err => console.error('Error logging logout:', err));
+        }
+
         setUser(null);
         router.push('/login');
     };

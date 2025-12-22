@@ -8,6 +8,8 @@ import { Header } from './Header';
 import { MobileHeader } from './MobileHeader';
 import { BottomTabBar } from './BottomTabBar';
 import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
+import { ToastProvider } from '@/lib/toast-context';
+import { DialogProvider } from '@/lib/dialog-context';
 
 const MainContent = ({ children, isPublicPage }: { children: React.ReactNode; isPublicPage: boolean }) => {
     const { user } = useAuth();
@@ -38,29 +40,37 @@ const MainContent = ({ children, isPublicPage }: { children: React.ReactNode; is
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
     const pathname = usePathname();
-    const isPublicPage = pathname === '/login' || pathname === '/';
+    const isPublicPage = pathname === '/login' || pathname === '/' || pathname === '/inactive';
 
     // Wrap with SidebarProvider only for authenticated pages
     if (isPublicPage || !user) {
         return (
-            <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
-                <div className="flex-1 flex flex-col min-h-screen min-w-0">
-                    <main className="flex-1 w-full mx-auto overflow-x-hidden">
-                        {children}
-                    </main>
-                </div>
-            </div>
+            <ToastProvider>
+                <DialogProvider>
+                    <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
+                        <div className="flex-1 flex flex-col min-h-screen min-w-0">
+                            <main className="flex-1 w-full mx-auto overflow-x-hidden">
+                                {children}
+                            </main>
+                        </div>
+                    </div>
+                </DialogProvider>
+            </ToastProvider>
         );
     }
 
     return (
-        <SidebarProvider>
-            <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
-                <Sidebar />
-                <MainContent isPublicPage={isPublicPage}>
-                    {children}
-                </MainContent>
-            </div>
-        </SidebarProvider>
+        <ToastProvider>
+            <DialogProvider>
+                <SidebarProvider>
+                    <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
+                        <Sidebar />
+                        <MainContent isPublicPage={isPublicPage}>
+                            {children}
+                        </MainContent>
+                    </div>
+                </SidebarProvider>
+            </DialogProvider>
+        </ToastProvider>
     );
 };

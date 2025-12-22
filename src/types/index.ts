@@ -21,7 +21,8 @@ export interface User {
     name: string;
     role: Role;
     email: string;
-    active: boolean;
+    active?: boolean; // Deprecated, kept for immediate backward compat during refactor
+    status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }
 
 export interface Equipment {
@@ -48,8 +49,10 @@ export interface Transaction {
     userId: string;
     items: string[]; // Equipment IDs
     timestampOut: string;
+    timestampIn?: string;
     project?: string;
     preCheckoutConditions: Record<string, Condition>; // ItemID -> Condition
+    postReturnConditions?: Record<string, Condition>;
     status: 'OPEN' | 'CLOSED';
     additionalUsers?: string[]; // IDs of other users involved
     notes?: string;
@@ -67,9 +70,9 @@ export interface ReturnRecord {
 
 export interface Log {
     id: string;
-    action: 'CHECKOUT' | 'RETURN' | 'VERIFY' | 'EDIT' | 'CREATE';
+    action: 'CHECKOUT' | 'RETURN' | 'VERIFY' | 'EDIT' | 'CREATE' | 'LOGIN' | 'SIGNUP' | 'LOGOUT' | 'LOGIN_FAILED';
     entityId: string; // Item or Transaction ID
-    userId: string;
+    userId?: string;
     timestamp: string;
     details?: string;
     oldValue?: unknown;

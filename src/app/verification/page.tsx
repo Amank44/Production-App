@@ -3,20 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
-import { Equipment } from '@/types';
+import { Equipment, User } from '@/types';
 import { useAuth } from '@/lib/auth';
+import { useToast } from '@/lib/toast-context';
 
 export default function VerificationPage() {
     const router = useRouter();
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [pendingItems, setPendingItems] = useState<Equipment[]>([]);
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
 
     const loadItems = React.useCallback(async () => {
         const items = await storage.getEquipment();
         const txns = await storage.getTransactions();
+        const usersList = await storage.getUsers();
+
         setPendingItems(items.filter(i => i.status === 'PENDING_VERIFICATION'));
         setTransactions(txns);
+        setUsers(usersList);
     }, []);
 
     useEffect(() => {
@@ -28,6 +34,14 @@ export default function VerificationPage() {
         loadItems();
     }, [user, router, loadItems]);
 
+    // Notifications handled by useToast
+
+    const getUserName = (userId?: string) => {
+        if (!userId) return 'Unknown';
+        const foundUser = users.find(u => u.id === userId);
+        return foundUser ? foundUser.name : userId.split('-')[0]; // Fallback to partial ID if not found
+    };
+
     const handleVerify = async (id: string, status: 'AVAILABLE' | 'DAMAGED' | 'MAINTENANCE') => {
         try {
             // Get the item being verified
@@ -35,22 +49,35 @@ export default function VerificationPage() {
             const item = items.find(i => i.id === id);
 
             if (!item) {
-                alert('Item not found');
+                showToast('No related transaction found for this item', 'error');
                 return;
             }
 
             // Update the item status
             await storage.updateEquipment(id, {
                 status,
-                assignedTo: undefined,
+                assignedTo: null as any,
                 lastActivity: new Date().toISOString()
             });
 
-            // Check if this item belongs to any open transaction
+            // Find related transaction to include project name in log if possible
             const transactions = await storage.getTransactions();
             const relatedTransaction = transactions.find(
                 t => t.status === 'OPEN' && t.items.includes(id)
             );
+
+            // Log verification
+            if (user) {
+                const projectText = relatedTransaction ? ` for project "${relatedTransaction.project || 'Unspecified'}"` : '';
+                await storage.addLog({
+                    id: crypto.randomUUID(),
+                    action: 'VERIFY',
+                    entityId: id,
+                    userId: user.id,
+                    timestamp: new Date().toISOString(),
+                    details: `Verified item "${item.name}" (${item.barcode}) as ${status}${projectText}`
+                });
+            }
 
             if (relatedTransaction) {
                 // Get all equipment to check if all items from this transaction are returned
@@ -71,27 +98,29 @@ export default function VerificationPage() {
                     });
 
                     // Log the transaction closure
-                    await storage.addLog({
-                        id: crypto.randomUUID(),
-                        action: 'EDIT',
-                        entityId: relatedTransaction.id,
-                        userId: user!.id,
-                        timestamp: new Date().toISOString(),
-                        details: `Transaction automatically closed - all items returned and verified`,
-                    });
+                    if (user) {
+                        await storage.addLog({
+                            id: crypto.randomUUID(),
+                            action: 'EDIT',
+                            entityId: relatedTransaction.id,
+                            userId: user.id,
+                            timestamp: new Date().toISOString(),
+                            details: `Transaction automatically closed - all items returned and verified`,
+                        });
+                    }
 
-                    alert(`Item verified! Transaction "${relatedTransaction.project || 'Unspecified'}" has been automatically closed as all items are returned.`);
+                    showToast(`Item verified! Transaction "${relatedTransaction.project || 'Unspecified'}" has been automatically closed.`, 'success');
                 } else {
-                    alert('Item verified successfully!');
+                    showToast('Item verified successfully!', 'success');
                 }
             } else {
-                alert('Item verified successfully!');
+                showToast('Item verified successfully', 'success');
             }
 
             loadItems();
         } catch (error) {
             console.error('Error verifying item:', error);
-            alert('Error verifying item. Please try again.');
+            showToast('Failed to verify item', 'error');
         }
     };
 
@@ -100,7 +129,9 @@ export default function VerificationPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* Notification Banner removed in favor of Toasts */}
+
             {/* Page Header */}
             <div>
                 <h1 className="text-[28px] sm:text-[34px] font-semibold text-[#1d1d1f] tracking-tight">Return Verification</h1>
@@ -135,14 +166,17 @@ export default function VerificationPage() {
                                             <span className="text-[#1d1d1f] font-medium">ID:</span> {item.barcode}
                                         </p>
                                         <p className="text-[13px] text-[#86868b]">
-                                            <span className="text-[#1d1d1f] font-medium">Returned by:</span> {item.assignedTo?.split('-')[0] || 'Unknown'}
+                                            <span className="text-[#1d1d1f] font-medium">Returned by:</span> {getUserName(item.assignedTo)}
                                         </p>
                                         {(() => {
                                             const txn = getItemTransaction(item.id);
                                             return txn ? (
-                                                <p className="text-[13px] text-[#86868b]">
+                                                <p className="text-[13px] text-[#86868b] flex items-center gap-2">
                                                     <span className="text-[#1d1d1f] font-medium">Project:</span>{' '}
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[11px] font-medium">
+                                                        {txn.id}
+                                                    </span>
+                                                    <span className="text-[13px]">
                                                         {txn.project || 'Unspecified'}
                                                     </span>
                                                 </p>

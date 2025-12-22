@@ -7,10 +7,12 @@ import { Equipment, Condition } from '@/types';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useAuth } from '@/lib/auth';
+import { useToast } from '@/lib/toast-context';
 
 export default function ReturnsPage() {
     const router = useRouter();
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [checkedOutItems, setCheckedOutItems] = useState<Equipment[]>([]);
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
     const [conditions, setConditions] = useState<Record<string, Condition>>({});
@@ -51,12 +53,25 @@ export default function ReturnsPage() {
         if (selectedItems.length === 0) return;
 
         // Process updates sequentially or in parallel
-        await Promise.all(selectedItems.map(id =>
-            storage.updateEquipment(id, {
+        // Process updates sequentially or in parallel
+        await Promise.all(selectedItems.map(async (id) => {
+            await storage.updateEquipment(id, {
                 status: 'PENDING_VERIFICATION',
                 condition: conditions[id]
-            })
-        ));
+            });
+
+            // Log the return submission
+            if (user) {
+                await storage.addLog({
+                    id: crypto.randomUUID(),
+                    action: 'RETURN',
+                    entityId: id,
+                    userId: user.id,
+                    timestamp: new Date().toISOString(),
+                    details: `Submitted for return (Condition: ${conditions[id] || 'OK'})`
+                });
+            }
+        }));
 
         // Refresh list
         const items = await storage.getEquipment();

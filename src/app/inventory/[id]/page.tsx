@@ -79,10 +79,21 @@ export default function ItemDetailsPage() {
                 condition: editCondition,
                 location: editLocation,
                 // Clear assignedTo if status is AVAILABLE
-                assignedTo: editStatus === 'AVAILABLE' ? undefined : item.assignedTo,
+                assignedTo: editStatus === 'AVAILABLE' ? null as any : item.assignedTo,
             };
 
             await storage.updateEquipment(item.id, updates);
+
+            // Log update
+            await storage.addLog({
+                id: crypto.randomUUID(),
+                action: 'EDIT',
+                entityId: item.id,
+                userId: user.id,
+                timestamp: new Date().toISOString(),
+                details: `Updated item "${item.name}" (${item.barcode}). Status: ${editStatus}, Condition: ${editCondition}`
+            });
+
             setItem({ ...item, ...updates });
             setIsEditing(false);
             setSaveMessage('Changes saved successfully!');
@@ -366,7 +377,7 @@ export default function ItemDetailsPage() {
                         </dl>
                     </Card>
 
-                    {item.assignedTo && (
+                    {item.status !== 'AVAILABLE' && item.assignedTo && (
                         <Card className="bg-primary/5 border-primary/20">
                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-primary">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

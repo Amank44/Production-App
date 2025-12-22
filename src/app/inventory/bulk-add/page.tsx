@@ -6,6 +6,7 @@ import { storage } from '@/lib/storage';
 import { Equipment } from '@/types';
 import { Button } from '@/components/Button';
 import { downloadFile } from '@/lib/download';
+import { useAuth } from '@/lib/auth';
 
 const getSuffix = (index: number): string => {
     let s = '';
@@ -58,6 +59,7 @@ interface BulkRow {
 
 export default function BulkAddPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [existingItems, setExistingItems] = useState<Equipment[]>([]);
@@ -273,6 +275,19 @@ export default function BulkAddPage() {
             }
 
             await storage.saveEquipment(newEquipment);
+
+            // Log the bulk import
+            if (user) {
+                await storage.addLog({
+                    id: crypto.randomUUID(),
+                    action: 'CREATE',
+                    entityId: 'BULK_IMPORT',
+                    userId: user.id,
+                    timestamp: new Date().toISOString(),
+                    details: `Bulk imported ${newEquipment.length} items to inventory`
+                });
+            }
+
             router.push('/inventory');
             router.refresh();
         } catch (error) {

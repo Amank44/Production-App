@@ -46,14 +46,11 @@ export default function LoginPage() {
                 const { error } = await signUp(
                     formData.email,
                     formData.password,
-                    formData.name,
-                    formData.role
+                    formData.name
                 );
                 if (error) throw error;
-                // On successful signup, maybe auto-login or show message?
-                // Supabase usually logs in automatically after signup unless email confirmation is on.
-                // We'll assume it works and redirect.
-                router.push('/');
+                // Since new accounts are inactive by default, redirect to the approval pending page
+                router.push('/inactive');
             }
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
@@ -105,8 +102,11 @@ export default function LoginPage() {
                         />
 
                         {error && (
-                            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                                {error}
+                            <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{error}</span>
                             </div>
                         )}
 

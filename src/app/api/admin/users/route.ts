@@ -24,12 +24,12 @@ const getSupabaseAdmin = () => {
 
 export async function GET(request: Request) {
     try {
-        console.log('Fetching users using shared client...');
+        console.log('Fetching users using admin client...');
 
-        // Use shared supabase client instead of admin client for reading
-        const { data: users, error } = await supabase
+        const supabaseAdmin = getSupabaseAdmin();
+        const { data: users, error } = await supabaseAdmin
             .from('users')
-            .select('id, name, email, role, active')
+            .select('id, name, email, role, status')
             .order('name', { ascending: true });
 
         if (error) {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
                         email,
                         name,
                         role,
-                        active: true
+                        status: 'ACTIVE' // Admin created users are active by default
                     }
                 ]);
 
@@ -91,7 +91,7 @@ export async function PUT(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
-        const { id, password, active, role } = body;
+        const { id, password, status, role } = body;
 
         if (password) {
             const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(id, {
@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
         }
 
         const updates: any = {};
-        if (active !== undefined) updates.active = active;
+        if (status !== undefined) updates.status = status;
         if (role !== undefined) updates.role = role;
 
         if (Object.keys(updates).length > 0) {
