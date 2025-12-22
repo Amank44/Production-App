@@ -294,19 +294,6 @@ export default function InventoryPage() {
                         </div>
                         {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
                             <div className="flex gap-1 sm:gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleCleanupAssignments}
-                                    disabled={isLoading}
-                                    title="Clear stale assignments from AVAILABLE items"
-                                    className="hidden md:flex items-center gap-1 text-xs border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    {isLoading ? 'Cleaning...' : 'Cleanup'}
-                                </Button>
                                 <Link href="/inventory/bulk-add">
                                     <Button variant="secondary" size="sm" className="whitespace-nowrap px-2 sm:px-3">
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

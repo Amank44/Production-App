@@ -130,48 +130,51 @@ _Generated via Production App_`;
     }
 
     return (
-        <div className="space-y-5 sm:space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                        Transaction Management
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        View and manage equipment checkouts
-                    </p>
+        <PullToRefresh onRefresh={loadData}>
+            <div className="space-y-3 sm:space-y-5 animate-fade-in">
+                {/* Stats at top - Compact on mobile */}
+                <div className="grid grid-cols-4 gap-2 sm:gap-4">
+                    <div className="p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+                        <p className="text-[10px] sm:text-sm font-medium text-blue-600">Total</p>
+                        <p className="text-lg sm:text-2xl font-bold">{transactions.length}</p>
+                    </div>
+                    <div className="p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+                        <p className="text-[10px] sm:text-sm font-medium text-green-600">Active</p>
+                        <p className="text-lg sm:text-2xl font-bold">
+                            {transactions.filter(t => t.status === 'OPEN').length}
+                        </p>
+                    </div>
+                    <div className="p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-gray-500/10 to-gray-600/5 border border-gray-500/20">
+                        <p className="text-[10px] sm:text-sm font-medium text-gray-600">Closed</p>
+                        <p className="text-lg sm:text-2xl font-bold">
+                            {transactions.filter(t => t.status === 'CLOSED').length}
+                        </p>
+                    </div>
+                    <div className="p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+                        <p className="text-[10px] sm:text-sm font-medium text-orange-600">Out</p>
+                        <p className="text-lg sm:text-2xl font-bold">
+                            {transactions.filter(t => t.status === 'OPEN').reduce((sum, t) => sum + t.items.length, 0)}
+                        </p>
+                    </div>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadData}
-                    className="w-full sm:w-auto"
-                >
-                    <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh
-                </Button>
-            </div>
 
-            {/* Filters */}
-            <Card className="p-4">
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                {/* Search & Filters - Compact */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                     <div className="flex-1">
                         <Input
                             type="text"
-                            placeholder="Search by project, user, or items..."
+                            placeholder="Search project, user, items..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full"
+                            className="w-full h-10 sm:h-11"
                         />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 sm:gap-2">
                         <Button
                             variant={filterStatus === 'ALL' ? 'primary' : 'outline'}
                             size="sm"
                             onClick={() => setFilterStatus('ALL')}
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 sm:flex-none h-10 sm:h-11 text-xs sm:text-sm"
                         >
                             All
                         </Button>
@@ -179,7 +182,7 @@ _Generated via Production App_`;
                             variant={filterStatus === 'OPEN' ? 'primary' : 'outline'}
                             size="sm"
                             onClick={() => setFilterStatus('OPEN')}
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 sm:flex-none h-10 sm:h-11 text-xs sm:text-sm"
                         >
                             Active
                         </Button>
@@ -187,42 +190,14 @@ _Generated via Production App_`;
                             variant={filterStatus === 'CLOSED' ? 'primary' : 'outline'}
                             size="sm"
                             onClick={() => setFilterStatus('CLOSED')}
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 sm:flex-none h-10 sm:h-11 text-xs sm:text-sm"
                         >
                             Closed
                         </Button>
                     </div>
                 </div>
-            </Card>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                <Card className="p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-                    <p className="text-xs sm:text-sm font-medium text-blue-600">Total</p>
-                    <p className="text-xl sm:text-2xl font-bold mt-1">{transactions.length}</p>
-                </Card>
-                <Card className="p-3 sm:p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-                    <p className="text-xs sm:text-sm font-medium text-green-600">Active</p>
-                    <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {transactions.filter(t => t.status === 'OPEN').length}
-                    </p>
-                </Card>
-                <Card className="p-3 sm:p-4 bg-gradient-to-br from-gray-500/10 to-gray-600/5 border-gray-500/20">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Closed</p>
-                    <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {transactions.filter(t => t.status === 'CLOSED').length}
-                    </p>
-                </Card>
-                <Card className="p-3 sm:p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
-                    <p className="text-xs sm:text-sm font-medium text-orange-600">Items Out</p>
-                    <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {transactions.filter(t => t.status === 'OPEN').reduce((sum, t) => sum + t.items.length, 0)}
-                    </p>
-                </Card>
-            </div>
-
-            {/* Transactions List */}
-            <PullToRefresh onRefresh={loadData}>
+                {/* Transactions List */}
                 <Card title={`${filteredTransactions.length} Transaction${filteredTransactions.length !== 1 ? 's' : ''}`}>
                     {loading ? (
                         <div className="text-center py-12 text-muted-foreground">
@@ -337,7 +312,7 @@ _Generated via Production App_`;
                         </div>
                     )}
                 </Card>
-            </PullToRefresh>
-        </div>
+            </div>
+        </PullToRefresh>
     );
 }

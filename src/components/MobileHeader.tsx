@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
@@ -70,6 +71,12 @@ export const MobileHeader = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </button>
+                    {/* Profile Avatar */}
+                    <Link href="/profile" className="ml-1">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5856d6] to-[#af52de] flex items-center justify-center text-white font-semibold text-sm active:scale-95 transition-transform">
+                            {user.name.charAt(0).toUpperCase()}
+                        </div>
+                    </Link>
                 </div>
             </div>
         </header>
