@@ -101,7 +101,7 @@ export default function TransactionsPage() {
 *Date:* ${date}
 
 *Equipment List:*
-${itemNames.map(name => `• ${name}`).join('\n')}
+${itemNames.map(name => `• ${name}`).join('\n')}${txn.notes ? `\n\n*Notes / Other Items:*\n${txn.notes}` : ''}
 
 _Generated via Production App_`;
     };

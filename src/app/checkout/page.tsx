@@ -23,6 +23,7 @@ export default function CheckoutPage() {
     const [cart, setCart] = useState<Equipment[]>([]);
     const [scanInput, setScanInput] = useState('');
     const [project, setProject] = useState('');
+    const [notes, setNotes] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
     const [suggestions, setSuggestions] = useState<Equipment[]>([]);
@@ -63,6 +64,9 @@ export default function CheckoutPage() {
         const savedProject = sessionStorage.getItem('checkout-project');
         if (savedProject) setProject(savedProject);
 
+        const savedNotes = sessionStorage.getItem('checkout-notes');
+        if (savedNotes) setNotes(savedNotes);
+
         const savedUsers = sessionStorage.getItem('checkout-users');
         if (savedUsers) {
             try { setSelectedUserIds(JSON.parse(savedUsers)); } catch { }
@@ -86,6 +90,10 @@ export default function CheckoutPage() {
     useEffect(() => {
         sessionStorage.setItem('checkout-project', project);
     }, [project]);
+
+    useEffect(() => {
+        sessionStorage.setItem('checkout-notes', notes);
+    }, [notes]);
 
     useEffect(() => {
         if (selectedUserIds.length > 0) sessionStorage.setItem('checkout-users', JSON.stringify(selectedUserIds));
@@ -248,6 +256,7 @@ export default function CheckoutPage() {
                 items: cart.map(i => i.id),
                 timestampOut: new Date().toISOString(),
                 project: project.trim(),
+                notes: notes.trim(),
                 preCheckoutConditions: cart.reduce((acc, item) => ({
                     ...acc,
                     [item.id]: item.condition
@@ -280,6 +289,7 @@ export default function CheckoutPage() {
             setCart([]);
             sessionStorage.removeItem('checkout-cart');
             sessionStorage.removeItem('checkout-project');
+            sessionStorage.removeItem('checkout-notes');
             sessionStorage.removeItem('checkout-users');
 
             showToast('Checkout successful!', 'success');
@@ -435,6 +445,16 @@ export default function CheckoutPage() {
                                     />
                                 </div>
 
+                                <div>
+                                    <label className="text-[13px] font-semibold text-[#8e8e93] mb-2 block">Notes / Other Items</label>
+                                    <textarea
+                                        placeholder="Any additional items or notes..."
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        className="w-full h-24 p-4 bg-[#f2f2f7] border-0 rounded-xl text-[15px] focus:ring-2 focus:ring-[#0071e3] transition-all resize-none placeholder:text-[#8e8e93]/70"
+                                    />
+                                </div>
+
                                 <div className="pt-4 border-t border-[#f2f2f7]">
                                     <div className="flex justify-between items-center mb-4 px-1">
                                         <span className="text-[#8e8e93] font-medium">Items</span>
@@ -458,54 +478,85 @@ export default function CheckoutPage() {
             {/* Mobile Layout */}
             <div className="md:hidden flex flex-col min-h-[calc(100vh-140px)] -mx-4">
                 {/* Project Brief */}
-                <div className="px-5 py-4 bg-white border-b border-[#e5e5ea]">
-                    {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
-                        <div className="mb-4">
-                            <MultiSelect
-                                label="Assign To"
-                                value={selectedUserIds}
-                                onChange={setSelectedUserIds}
-                                options={users.map(u => ({ value: u.id, label: u.name }))}
+                {/* Project Details Section - Premium Mobile Card */}
+                <div className="px-5 pt-4 pb-0 relative z-20 animate-in slide-in-from-top-4 duration-300 mb-6">
+                    <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#e5e5ea]">
+                        {user && ['MANAGER', 'ADMIN'].includes(user.role) && (
+                            <div className="p-4 border-b border-[#f5f5f7]">
+                                <MultiSelect
+                                    label="Checkout For"
+                                    value={selectedUserIds}
+                                    onChange={setSelectedUserIds}
+                                    options={users.map(u => ({
+                                        value: u.id,
+                                        label: `${u.name} (${u.role})`
+                                    }))}
+                                />
+                            </div>
+                        )}
+                        <div className="p-4">
+                            <label className="text-[13px] font-semibold text-[#86868b] uppercase tracking-wide mb-2 block pl-1">
+                                Project / Shoot Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Documentary Shoot A"
+                                value={project}
+                                onChange={(e) => setProject(e.target.value)}
+                                className="w-full h-12 px-4 bg-[#f5f5f7] border-0 rounded-2xl text-[16px] text-[#1d1d1f] placeholder:text-[#8e8e93] focus:outline-none focus:ring-2 focus:ring-[#0071e3] focus:bg-white transition-all shadow-inner mb-4"
+                            />
+
+                            <label className="text-[13px] font-semibold text-[#86868b] uppercase tracking-wide mb-2 block pl-1">
+                                Notes / Other Items
+                            </label>
+                            <textarea
+                                placeholder="List any items not in inventory..."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                className="w-full h-24 p-4 bg-[#f5f5f7] border-0 rounded-2xl text-[16px] text-[#1d1d1f] placeholder:text-[#8e8e93] focus:outline-none focus:ring-2 focus:ring-[#0071e3] focus:bg-white transition-all shadow-inner resize-none appearance-none"
                             />
                         </div>
-                    )}
-                    <input
-                        type="text"
-                        placeholder="Project Name..."
-                        value={project}
-                        onChange={(e) => setProject(e.target.value)}
-                        className="w-full h-12 px-4 bg-[#f2f2f7] border-0 rounded-2xl text-[17px] font-semibold"
-                    />
+                    </div>
                 </div>
 
-                {/* Scanner View */}
-                {showScanner && (
-                    <div className="fixed inset-0 z-[200] bg-black">
-                        <MobileScanner
-                            onScan={handleQRScan}
-                            onError={(err) => showToast(err, 'error')}
-                            onClose={() => setShowScanner(false)}
-                            autoStart={true}
-                        />
+                {/* Scanner View (Inline) */}
+                <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${showScanner ? 'max-h-[500px] opacity-100 mb-6' : 'max-h-0 opacity-0'}`}>
+                    <div className="mx-5 relative z-10">
+                        <div className="h-[360px] rounded-[32px] overflow-hidden shadow-[0_20px_40px_-12px_rgba(0,0,0,0.3)] border border-[#e5e5ea] transform translate-z-0">
+                            {showScanner && (
+                                <MobileScanner
+                                    onScan={handleQRScan}
+                                    onError={(err) => showToast(err, 'error')}
+                                    onClose={() => setShowScanner(false)}
+                                    autoStart={true}
+                                />
+                            )}
+                        </div>
                     </div>
-                )}
+                </div>
 
                 <div className="flex-1 overflow-auto pb-40">
-                    <div className="px-5 py-6">
+                    <div className="px-5 py-2">
                         <div className="flex gap-3 mb-6">
                             <input
                                 placeholder="Search or type barcode..."
                                 value={scanInput}
                                 onChange={(e) => handleInputChange(e.target.value)}
-                                className="flex-1 h-14 px-5 bg-[#f2f2f7] border-0 rounded-2xl text-[16px] focus:bg-white focus:ring-2 focus:ring-[#0071e3] transition-all"
+                                className="flex-1 h-14 px-5 bg-[#f2f2f7] border-0 rounded-2xl text-[16px] focus:bg-white focus:ring-2 focus:ring-[#0071e3] transition-all shadow-sm"
                             />
                             <button
-                                onClick={() => setShowScanner(true)}
-                                className="w-14 h-14 bg-[#0071e3] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#0071e3]/30"
+                                onClick={() => setShowScanner(!showScanner)}
+                                className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 ${showScanner ? 'bg-[#f2f2f7] text-[#1d1d1f]' : 'bg-[#1d1d1f] text-white shadow-[#1d1d1f]/30'}`}
                             >
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M4 6h2v2H4V6zm3 0h2v2H7V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm-18 3h2v2H4V9zm3 0h2v2H7V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm-18 3h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm-18 3h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zM4 18h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2z" />
-                                </svg>
+                                {showScanner ? (
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M4 6h2v2H4V6zm3 0h2v2H7V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm3 0h2v2h-2V6zm-18 3h2v2H4V9zm3 0h2v2H7V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm3 0h2v2h-2V9zm-18 3h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm-18 3h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zM4 18h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2zm3 0h2v2h-2v-2z" />
+                                    </svg>
+                                )}
                             </button>
                         </div>
 

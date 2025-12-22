@@ -310,14 +310,14 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
     }, []);
 
     return (
-        <div className="relative bg-black rounded-t-3xl overflow-hidden">
+        <div className="relative bg-black w-full h-full overflow-hidden">
             {/* Scanner container */}
             <div
                 id={scannerId}
-                className="w-full"
+                className="w-full h-full"
                 style={{
                     width: '100%',
-                    height: '320px',
+                    height: '100%',
                     position: 'relative',
                     overflow: 'hidden'
                 }}
@@ -325,63 +325,70 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
 
             {/* Scan overlay with corners */}
             {isScanning && (
-                <div className="absolute inset-0 pointer-events-none" style={{ top: 0, height: '320px' }}>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px]">
-                        <div className="absolute top-0 left-0 w-10 h-10 border-white rounded-tl-2xl" style={{ borderWidth: '4px 0 0 4px' }} />
-                        <div className="absolute top-0 right-0 w-10 h-10 border-white rounded-tr-2xl" style={{ borderWidth: '4px 4px 0 0' }} />
-                        <div className="absolute bottom-0 left-0 w-10 h-10 border-white rounded-bl-2xl" style={{ borderWidth: '0 0 4px 4px' }} />
-                        <div className="absolute bottom-0 right-0 w-10 h-10 border-white rounded-br-2xl" style={{ borderWidth: '0 4px 4px 0' }} />
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#0071e3] to-transparent animate-scan-line rounded-full" />
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px]">
+                        <div className="absolute top-0 left-0 w-12 h-12 border-white rounded-tl-3xl opacity-90 shadow-sm" style={{ borderWidth: '6px 0 0 6px' }} />
+                        <div className="absolute top-0 right-0 w-12 h-12 border-white rounded-tr-3xl opacity-90 shadow-sm" style={{ borderWidth: '6px 6px 0 0' }} />
+                        <div className="absolute bottom-0 left-0 w-12 h-12 border-white rounded-bl-3xl opacity-90 shadow-sm" style={{ borderWidth: '0 0 6px 6px' }} />
+                        <div className="absolute bottom-0 right-0 w-12 h-12 border-white rounded-br-3xl opacity-90 shadow-sm" style={{ borderWidth: '0 6px 6px 0' }} />
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#0071e3] to-transparent animate-scan-line rounded-full shadow-[0_0_15px_rgba(0,113,227,0.8)]" />
                     </div>
+                    {/* Darker backdrop outside scan area */}
+                    <div className="absolute inset-0 bg-black/30 pointer-events-none" style={{
+                        maskImage: 'linear-gradient(to bottom, black 35%, transparent 35%, transparent 65%, black 65%)',
+                        WebkitMaskImage: 'linear-gradient(to bottom, black 35%, transparent 35%, transparent 65%, black 65%)'
+                    }} />
                 </div>
             )}
 
             {/* Scan count indicator */}
             {scanCount > 0 && (
-                <div className="absolute top-5 left-5 px-4 py-2 bg-[#34c759] rounded-full shadow-lg">
-                    <span className="text-white text-[14px] font-bold">{scanCount} scanned</span>
+                <div className="absolute top-safe-offset left-5 mt-5 px-4 py-2 bg-[#34c759]/90 backdrop-blur-md rounded-full shadow-lg border border-white/10 z-50">
+                    <span className="text-white text-[14px] font-bold tracking-wide">{scanCount} scanned</span>
                 </div>
             )}
 
             {/* Close button */}
             {onClose && (
-                <button
-                    onClick={() => {
-                        stopScanning();
-                        onClose();
-                    }}
-                    className="absolute top-5 right-5 w-11 h-11 bg-black/40 backdrop-blur-xl rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
-                >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                <div className="absolute top-safe-offset right-5 mt-5 z-50">
+                    <button
+                        onClick={() => {
+                            stopScanning();
+                            onClose();
+                        }}
+                        className="w-12 h-12 bg-black/40 backdrop-blur-xl rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg border border-white/10 hover:bg-black/60"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             )}
 
             {/* Loading state */}
             {!isScanning && !error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black" style={{ height: '320px' }}>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90">
                     <div className="text-center">
-                        <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" style={{ borderWidth: '3px' }} />
-                        <p className="text-white/80 text-[17px] font-medium">Starting camera...</p>
+                        <div className="w-14 h-14 border-4 border-white/20 border-t-[#0071e3] rounded-full animate-spin mx-auto mb-5" />
+                        <p className="text-white/90 text-[17px] font-semibold tracking-wide">Starting camera...</p>
                     </div>
                 </div>
             )}
 
             {/* Error state */}
             {error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/95 p-8" style={{ height: '320px' }}>
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-[#ff3b30]/20 rounded-full flex items-center justify-center mx-auto mb-5">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/95 p-8">
+                    <div className="text-center max-w-xs">
+                        <div className="w-20 h-20 bg-[#ff3b30]/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-[#ff3b30]/10">
                             <svg className="w-10 h-10 text-[#ff3b30]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        <p className="text-white text-[20px] font-bold mb-2">Camera Error</p>
-                        <p className="text-white/50 text-[15px] mb-6">{error}</p>
+                        <p className="text-white text-[22px] font-bold mb-3">Camera Error</p>
+                        <p className="text-white/60 text-[15px] mb-8 leading-relaxed">{error}</p>
                         <button
                             onClick={startScanning}
-                            className="px-8 py-3.5 bg-[#0071e3] text-white rounded-2xl text-[17px] font-semibold active:scale-95 transition-transform"
+                            className="w-full px-8 py-4 bg-[#0071e3] text-white rounded-2xl text-[17px] font-bold active:scale-95 transition-all shadow-lg hover:bg-[#0077ED]"
                         >
                             Try Again
                         </button>
@@ -390,8 +397,8 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
             )}
 
             {/* Bottom hint */}
-            <div className="bg-gradient-to-t from-black via-black/80 to-transparent absolute bottom-0 left-0 right-0 px-6 py-5 text-center">
-                <p className="text-white/70 text-[15px] font-medium">
+            <div className="bg-gradient-to-t from-black via-black/90 to-transparent absolute bottom-0 left-0 right-0 px-6 pb-12 pt-16 text-center pointer-events-none">
+                <p className="text-white/90 text-[16px] font-medium tracking-wide drop-shadow-md">
                     {isScanning ? 'Align QR code within the frame' : 'Initializing...'}
                 </p>
             </div>
@@ -402,6 +409,7 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
                     height: 100% !important;
                     object-fit: cover !important;
                     display: block !important;
+                    border-radius: 0 !important;
                 }
                 #${scannerId} canvas {
                     display: none !important;
